@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>WebRTC Multi‑Device Viewer</title>
+    <style>
+      #playButton {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 10px 20px;
+        font-size: 16px;
+        display: none;
+        z-index: 1000;
+      }
+      #devices {
+        margin-bottom: 20px;
+      }
+    </style>
+    <script>
+      let pc = null;
+      let currentDevice = null; // device_id of the currently viewed camera
+
+      // Fetch and display the list of available devices.
+      async function loadDevices() {
+        const response = await fetch("/cameras/get_all");
+        const devices = await response.json();
+        const devicesDiv = document.getElementById("devices");
+        devicesDiv.innerHTML = "";
+        devices.forEach((device) => {
+          const status = device.connected ? " (connected - idle)" : " (disconnected)";
+          const streamStatus = device.stream ? " (streaming)" : status;
+          const btn = document.createElement("button");
+          btn.innerText = device.camera_id + streamStatus;
+          btn.onclick = () => selectDevice(device.camera_id);
+          devicesDiv.appendChild(btn);
+          devicesDiv.appendChild(document.createTextNode(" "));
+        });
+      }
+
+
+      // When a device is selected, instruct the server to start streaming
+      // for that device and then start the subscriber connection.
+      async function selectDevice(device_id) {
+        console.log("Selected device:", device_id);
+        currentDevice = device_id;
+        // Instruct the server: set streaming true for the selected device.
+        await fetch("/cameras/set_stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ camera_id: device_id, stream: true }),
+        });
+        // Start viewing the stream.
+        await startStream();
+      }
+
+      // When stopping viewing, instruct the server to stop streaming for that device.
+      async function stopViewing() {
+        if (!currentDevice) return;
+        console.log("Stopping viewing for device:", currentDevice);
+        // Instruct the server: set streaming false.
+        await fetch("/cameras/set_stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ camera_id: currentDevice, stream: false }),
+        });
+        stopStream();
+        currentDevice = null;
+      }
+
+      async function startStream() {
+        try {
+          if (pc) {
+            console.warn("WebRTC connection already exists. Restarting...");
+            stopStream();
+          }
+          pc = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+          });
+
+          // Add a transceiver for video (recvonly).
+          pc.addTransceiver("video", { direction: "recvonly" });
+
+          pc.oniceconnectionstatechange = () => {
+            console.log("ICE Connection State:", pc.iceConnectionState);
+            if (
+              pc.iceConnectionState === "disconnected" ||
+              pc.iceConnectionState === "failed"
+            ) {
+              console.error("ICE Connection failed. Restarting stream...");
+              stopStream();
+            }
+          };
+
+          pc.ontrack = (event) => {
+            console.log("📡 Received track:", event.track.kind);
+            const videoElement = document.getElementById("video");
+            videoElement.muted = true; // Required for autoplay.
+            if (event.streams && event.streams[0]) {
+              console.log("📡 Received video stream:", event.streams[0]);
+              if (videoElement.srcObject !== event.streams[0]) {
+                console.log("✅ Assigning new video stream");
+                videoElement.srcObject = event.streams[0];
+                videoElement.onloadedmetadata = () => {
+                  console.log("📶 Metadata loaded. Attempting to play video.");
+                  videoElement
+                    .play()
+                    .then(() => {
+                      console.log("🎥 Video is playing!");
+                    })
+                    .catch((err) => {
+                      console.error("🚨 Error playing video:", err);
+                      showPlayButton(videoElement);
+                    });
+                };
+              } else {
+                console.log("🔄 Stream already assigned.");
+              }
+            } else {
+              console.warn("🚨 No stream available for the video track.");
+            }
+          };
+
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          console.log("Sending SDP Offer:", offer);
+
+          // Send the offer to the server with role "subscriber" and the current device id.
+          const response = await fetch("/offer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sdp: offer.sdp,
+              type: offer.type,
+              role: "subscriber",
+              device_id: currentDevice,
+            }),
+          });
+          const answer = await response.json();
+          if (answer.error) {
+            console.error("Error in SDP answer:", answer.error);
+            return;
+          }
+          console.log("Received SDP answer:", answer);
+          await pc
+            .setRemoteDescription(answer)
+            .then(() => console.log("Remote description set successfully"))
+            .catch((err) => {
+              console.error("Error setting remote description:", err);
+              stopStream();
+            });
+        } catch (e) {
+          console.error("Error during startStream:", e);
+        }
+      }
+
+      function stopStream() {
+        if (pc) {
+          console.log("Closing subscriber WebRTC connection...");
+          pc.close();
+          pc = null;
+        }
+        const videoElement = document.getElementById("video");
+        if (videoElement.srcObject) {
+          videoElement.srcObject.getTracks().forEach((track) => track.stop());
+          videoElement.srcObject = null;
+        }
+      }
+
+      function showPlayButton(videoElement) {
+        const playButton = document.getElementById("playButton");
+        playButton.style.display = "block";
+        playButton.addEventListener("click", () => {
+          videoElement
+            .play()
+            .then(() => {
+              console.log("✅ Video started after user interaction");
+              playButton.style.display = "none";
+            })
+            .catch((err) => {
+              console.error("🚨 Video still unable to play:", err);
+            });
+        });
+      }
+
+      // Reload available devices on page load and every 5 seconds.
+      window.onload = () => {
+        loadDevices();
+        setInterval(loadDevices, 5000);
+      };
+    </script>
+  </head>
+  <body>
+    <h1>WebRTC Multi‑Device Viewer</h1>
+    <div id="devices">
+      <!-- Buttons for each available device will appear here -->
+    </div>
+    <button onclick="stopViewing()">Stop Viewing</button>
+    <br /><br />
+    <video
+      id="video"
+      playsinline
+      muted
+      autoplay
+      style="width: 640px; height: 480px; background: black"
+    ></video>
+    <button id="playButton">Start Video</button>
+    <p>Status: <span id="status">Idle</span></p>
+  </body>
+</html>
