@@ -5,18 +5,27 @@ services:
     build: .
     container_name: fastapi_app
     restart: always
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://dandevko:dandevko@db/senior_project
     ports:
       - "8080:8080"
     volumes:
       - .:/app
-    depends_on:
-      - nginx
 
-  nginx:
-    image: nginx:latest
-    container_name: nginx_proxy
+  db:
+    image: postgres:16
+    container_name: postgres_db
     restart: always
+    environment:
+      POSTGRES_DB: senior_project
+      POSTGRES_USER: dandevko
+      POSTGRES_PASSWORD: dandevko
     ports:
-      - "80:80"
+      - "5432:5432"
     volumes:
-      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
