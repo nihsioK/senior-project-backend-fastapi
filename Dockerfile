@@ -24,7 +24,10 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-# Ensure the virtual environment executables are in the PATH
+# **Ensure `uvicorn` is installed and available**
+RUN /app/.venv/bin/uv pip install uvicorn
+
+# **Set the correct path to uvicorn**
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Reset the entrypoint
