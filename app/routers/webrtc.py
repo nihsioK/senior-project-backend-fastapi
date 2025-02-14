@@ -8,6 +8,7 @@ router = APIRouter()
 
 relay = MediaRelay()
 
+
 @router.post("/offer")
 async def offer(request: Request):
     try:
@@ -20,6 +21,7 @@ async def offer(request: Request):
         if role == "publisher":
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
+
             pc = RTCPeerConnection()
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
 
@@ -28,6 +30,10 @@ async def offer(request: Request):
                 if track.kind == "video":
                     print(f"[Cloud Server] Publisher '{device_id}' video track received!")
                     publishers[device_id]["track"] = track
+
+            @pc.on("icecandidate")
+            async def on_ice_candidate(candidate):
+                print(f"[Cloud Server] Publisher (device {device_id}) ICE candidate: {candidate}")
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
@@ -47,6 +53,10 @@ async def offer(request: Request):
             async def on_ice_state_change():
                 print(f"[Cloud Server] Subscriber (device {device_id}) ICE state:", pc.iceConnectionState)
 
+            @pc.on("icecandidate")
+            async def on_ice_candidate(candidate):
+                print(f"[Cloud Server] Subscriber (device {device_id}) ICE candidate: {candidate}")
+
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
@@ -59,6 +69,7 @@ async def offer(request: Request):
     except Exception as e:
         print("[Cloud Server] Exception in /offer:", e)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/set_stream")
 async def set_stream(request: Request):
