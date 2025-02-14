@@ -10,8 +10,8 @@ RUN pip install uv
 # Copy the pyproject.toml and uv.lock files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies using uv (ensure the virtual environment is created)
-RUN uv venv .venv && .venv/bin/uv pip sync
+# Ensure the virtual environment is created and install dependencies inside it
+RUN uv venv .venv && .venv/bin/uv pip install --system
 
 # Copy the application code
 COPY . .
@@ -19,5 +19,5 @@ COPY . .
 # Expose the FastAPI application port
 EXPOSE 8080
 
-# Ensure we use the correct virtual environment path for running uvicorn
+# Use an absolute path to uvicorn
 CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
