@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer
 from aiortc.contrib.media import MediaRelay
 
 from app.dependencies import publishers, subscriber_pcs
@@ -23,12 +23,15 @@ async def offer(request: Request):
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
 
             ice_servers = [
-                {"urls": "stun:stun.l.google.com:19302"},
-                {"urls": "turn:relay.metered.ca:80", "username": "open", "credential": "open"},
-                {"urls": "turn:relay.metered.ca:443", "username": "open", "credential": "open"}
+                RTCIceServer(urls="stun:stun.l.google.com:19302"),
+                RTCIceServer(urls="turn:relay.metered.ca:80", username="open", credential="open"),
+                RTCIceServer(urls="turn:relay.metered.ca:443", username="open", credential="open")
             ]
 
-            pc = RTCPeerConnection({"iceServers": ice_servers})
+            rtc_configuration = RTCConfiguration(iceServers=ice_servers)
+
+            pc = RTCPeerConnection(rtc_configuration)
+
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
 
             @pc.on("track")
