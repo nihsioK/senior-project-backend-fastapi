@@ -1,13 +1,19 @@
 from fastapi import APIRouter, HTTPException, Request
-from aiortc import RTCPeerConnection, RTCSessionDescription
-from aiortc.contrib.media import MediaRelay
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
+from aiortc.contrib.media import MediaRelay
+
 from app.dependencies import publishers, subscriber_pcs
 
 router = APIRouter()
-
 relay = MediaRelay()
 
+# ✅ Define ICE servers using RTCIceServer
+ICE_SERVERS = [
+    RTCIceServer(urls="turn:46.8.31.7:3478", username="any_username", credential="my_secure_turn_password")
+]
+
+# ✅ Define RTCConfiguration
+RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
 
 @router.post("/offer")
 async def offer(request: Request):
@@ -22,16 +28,8 @@ async def offer(request: Request):
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
 
-            ice_servers = [
-                RTCIceServer(urls="stun:stun.l.google.com:19302"),
-                RTCIceServer(urls="turn:relay.metered.ca:80", username="open", credential="open"),
-                RTCIceServer(urls="turn:relay.metered.ca:443", username="open", credential="open")
-            ]
-
-            rtc_configuration = RTCConfiguration(iceServers=ice_servers)
-
-            pc = RTCPeerConnection(rtc_configuration)
-
+            # ✅ Use RTCConfiguration
+            pc = RTCPeerConnection(RTC_CONFIG)
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
 
             @pc.on("track")
@@ -43,9 +41,9 @@ async def offer(request: Request):
             @pc.on("icecandidate")
             async def on_ice_candidate(candidate):
                 if candidate:
-                    print(f"[Cloud Server] ICE candidate: {candidate.to_sdp()}")
+                    print(f"[Cloud Server] Publisher ICE candidate: {candidate.to_sdp()}")
                 else:
-                    print("[Cloud Server] ICE gathering complete.")
+                    print("[Cloud Server] Publisher ICE gathering complete.")
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
@@ -57,17 +55,21 @@ async def offer(request: Request):
             if not device_id or device_id not in publishers or publishers[device_id]["track"] is None:
                 return {"error": f"No active publisher for device {device_id}"}
 
-            pc = RTCPeerConnection()
+            # ✅ Use RTCConfiguration
+            pc = RTCPeerConnection(RTC_CONFIG)
             local_video = relay.subscribe(publishers[device_id]["track"])
             pc.addTrack(local_video)
 
             @pc.on("iceconnectionstatechange")
             async def on_ice_state_change():
-                print(f"[Cloud Server] Subscriber (device {device_id}) ICE state:", pc.iceConnectionState)
+                print(f"[Cloud Server] Subscriber (device {device_id}) ICE state: {pc.iceConnectionState}")
 
             @pc.on("icecandidate")
             async def on_ice_candidate(candidate):
-                print(f"[Cloud Server] Subscriber (device {device_id}) ICE candidate: {candidate}")
+                if candidate:
+                    print(f"[Cloud Server] Subscriber ICE candidate: {candidate.to_sdp()}")
+                else:
+                    print("[Cloud Server] Subscriber ICE gathering complete.")
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
@@ -78,6 +80,7 @@ async def offer(request: Request):
 
         else:
             return {"error": "Invalid role specified"}
+
     except Exception as e:
         print("[Cloud Server] Exception in /offer:", e)
         raise HTTPException(status_code=500, detail=str(e))
