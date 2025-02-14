@@ -6,7 +6,6 @@ from aiortc.contrib.media import MediaRelay
 from app.dependencies import publishers, subscriber_pcs
 
 logging.basicConfig(level=logging.INFO)
-
 router = APIRouter()
 relay = MediaRelay()
 
@@ -25,12 +24,20 @@ ICE_SERVERS = [
 
 RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
 
+def remove_rtx_from_sdp(sdp: str) -> str:
+    """
+    Remove any lines containing "rtx" (case-insensitive) from the SDP.
+    This prevents negotiation of RTX (retransmission) payloads.
+    """
+    lines = sdp.splitlines()
+    filtered = [line for line in lines if "rtx" not in line.lower()]
+    return "\r\n".join(filtered) + "\r\n"
+
 @router.post("/offer")
 async def offer(request: Request):
     """
     Handle incoming SDP offers from publisher or subscriber.
-    For publishers, the incoming video track (except for retransmissions)
-    is saved; for subscribers, the saved track is relayed.
+    For publishers, the incoming SDP is filtered to remove RTX-related lines.
     """
     try:
         params = await request.json()
@@ -42,22 +49,16 @@ async def offer(request: Request):
         if role == "publisher":
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
+            # Remove RTX lines from the incoming SDP
+            sdp = remove_rtx_from_sdp(sdp)
 
             pc = RTCPeerConnection(RTC_CONFIG)
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
 
             @pc.on("track")
             async def on_track(track):
+                # Since RTX was removed from the SDP, only the primary video track should arrive.
                 if track.kind == "video":
-                    try:
-                        # If track has a codec attribute, check for RTX.
-                        if track.codec.mimeType == "video/rtx":
-                            logging.info("Ignoring video/rtx track (retransmissions only).")
-                            track.stop()
-                            return
-                    except Exception:
-                        # If codec attribute isn’t present, ignore the check.
-                        pass
                     logging.info(f"[Cloud Server] Publisher '{device_id}' main video track received!")
                     publishers[device_id]["track"] = track
 
@@ -79,6 +80,7 @@ async def offer(request: Request):
                 return {"error": f"No active publisher for device {device_id}"}
 
             pc = RTCPeerConnection(RTC_CONFIG)
+            # Relay the publisher's track to the subscriber
             local_video = relay.subscribe(publishers[device_id]["track"])
             pc.addTrack(local_video)
 
@@ -96,7 +98,6 @@ async def offer(request: Request):
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
-
             subscriber_pcs.add(pc)
             return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
@@ -112,7 +113,6 @@ async def offer(request: Request):
 async def set_stream(request: Request):
     """
     Sets the "streaming" flag for a given publisher device.
-    (Assuming your other endpoints—such as GET /cameras/get/{device_id}—use this flag.)
     """
     try:
         params = await request.json()

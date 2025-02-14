@@ -47,7 +47,7 @@ class VideoCaptureTrack(VideoStreamTrack):
         self.running = False
 
     async def recv(self):
-        """Capture a frame from the camera and return as VideoFrame."""
+        """Capture a frame and return it as a VideoFrame."""
         while not self.running:
             await asyncio.sleep(0.1)
         loop = asyncio.get_event_loop()
@@ -63,22 +63,19 @@ class VideoCaptureTrack(VideoStreamTrack):
         return video_frame
 
     async def start_stream(self):
-        """Enable streaming so frames will be delivered."""
+        """Enable streaming."""
         if not self.running:
             self.running = True
             logging.info("[Publisher] Streaming started.")
 
     async def stop_stream(self):
-        """Disable streaming (pause frame delivery)."""
+        """Disable streaming."""
         if self.running:
             self.running = False
             logging.info("[Publisher] Streaming stopped.")
 
-
 async def register_camera(device_id, server_url):
-    """
-    Register the camera with the server (e.g. POST /cameras/create/).
-    """
+    """Register the camera with the server."""
     async with ClientSession() as session:
         try:
             response = await session.post(
@@ -95,11 +92,8 @@ async def register_camera(device_id, server_url):
             logging.error(f"[Publisher] Error registering camera: {e}")
             return False
 
-
 async def set_connection(device_id, server_url, connection):
-    """
-    Notify the server about the connection status (e.g. POST /cameras/connect/).
-    """
+    """Notify the server of connection status."""
     async with ClientSession() as session:
         try:
             response = await session.post(
@@ -116,12 +110,9 @@ async def set_connection(device_id, server_url, connection):
             logging.error(f"[Publisher] Error setting connection: {e}")
             return False
 
-# For testing, we now simply keep the stream on.
+# For testing, we simply start the stream once and keep it on.
 async def control_stream(device_id, video_track, server_url):
-    """
-    Instead of polling the server for the streaming flag,
-    we now simply start the stream once and keep it on.
-    """
+    """Keep the stream running."""
     while True:
         if not video_track.running:
             await video_track.start_stream()
@@ -130,12 +121,12 @@ async def control_stream(device_id, video_track, server_url):
 async def run(pc, session, cloud_server_url, camera_device, device_id):
     """
     Main steps:
-      1. Register the camera.
-      2. Notify the server that we are connected.
+      1. Register camera.
+      2. Set connection to True.
       3. Create and add the local video track.
-      4. Create an offer and send it to the server.
+      4. Create an SDP offer and send it to the server.
       5. Set the remote description from the server's answer.
-      6. Start the stream (control_stream task).
+      6. Start the stream control task.
     """
     if not await register_camera(device_id, cloud_server_url):
         logging.error("[Publisher] Exiting: camera registration failed.")
@@ -172,22 +163,16 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
     await pc.setRemoteDescription(RTCSessionDescription(sdp=answer["sdp"], type=answer["type"]))
     logging.info(f"[Publisher] Publisher connection established for device: {device_id}")
 
-    # Start the stream control task (keeps stream running)
     asyncio.create_task(control_stream(device_id, video_track, cloud_server_url))
 
-
 async def cleanup(device_id, server_url, pc):
-    """
-    Called on exit to notify the server and clean up the peer connection.
-    """
+    """Notify the server and close the peer connection."""
     logging.info("[Publisher] Cleaning up before exit...")
     try:
         await set_connection(device_id, server_url, False)
     except Exception as e:
         logging.error(f"[Publisher] Cleanup failed: {e}")
-    # Close the RTCPeerConnection to avoid pending tasks.
     await pc.close()
-
 
 async def main():
     parser = argparse.ArgumentParser(description="Publisher (Jetson) WebRTC Sender")
@@ -201,7 +186,6 @@ async def main():
     async with ClientSession() as session:
         try:
             await run(pc, session, args.server, args.camera, args.device_id)
-            # Keep running until interrupted.
             while True:
                 await asyncio.sleep(1)
         except asyncio.CancelledError:
