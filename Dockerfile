@@ -8,7 +8,7 @@ WORKDIR /app
 RUN apt update && apt install -y --no-install-recommends \
     libavformat-dev libavdevice-dev libavcodec-dev libavutil-dev libswscale-dev \
     ffmpeg gstreamer1.0-libav gstreamer1.0-plugins-bad gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-ugly libx264-170 libx265-199 libvpx-dev libopus-dev \
+    gstreamer1.0-plugins-ugly libx264-dev libx265-dev libvpx-dev libopus-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file
