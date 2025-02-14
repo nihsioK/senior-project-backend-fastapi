@@ -1,11 +1,11 @@
 # Use an official Python runtime as a base image
-FROM python:3.10
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 # Set the working directory
 WORKDIR /app
 
 # Install uv package manager globally
-RUN pip install uv
+#RUN pip install uv
 
 # Copy the pyproject.toml and uv.lock files first (to leverage caching)
 COPY pyproject.toml uv.lock ./
