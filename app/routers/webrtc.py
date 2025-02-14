@@ -9,8 +9,13 @@ relay = MediaRelay()
 
 # ✅ Define ICE servers using RTCIceServer
 ICE_SERVERS = [
-    RTCIceServer(urls="turn:46.8.31.7:3478", username="any_username", credential="my_secure_turn_password")
+    RTCIceServer(
+        urls=["turn:46.8.31.7:3478?transport=udp", "turn:46.8.31.7:3478?transport=tcp"],
+        username="webrtcuser",
+        credential="strongpassword"
+    )
 ]
+
 
 # ✅ Define RTCConfiguration
 RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
