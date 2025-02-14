@@ -43,6 +43,8 @@ services:
       - ./static:/usr/share/nginx/html/static
     networks:
       - backend
+    environment:
+      - NGINX_RESOLVER=8.8.8.8
 
 volumes:
   postgres_data:
