@@ -25,13 +25,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # **Ensure `uvicorn` is installed inside the virtual environment**
-RUN uv pip install uvicorn
+RUN uv venv .venv && .venv/bin/uv pip install uvicorn
 
 # **Ensure the virtual environment's binaries are in the PATH**
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Reset the entrypoint
-ENTRYPOINT []
+ENTRYPOINT ["/app/.venv/bin/uvicorn"]
 
 # Run FastAPI application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["app.main:app", "--host", "0.0.0.0", "--port", "8080"]
