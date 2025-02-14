@@ -4,9 +4,11 @@ FROM python:3.12-slim
 # Set the working directory
 WORKDIR /app
 
-# Install only the necessary runtime dependencies (corrected package names)
+# Install necessary system dependencies for aiortc and video decoding
 RUN apt update && apt install -y --no-install-recommends \
-    libavformat-dev libavdevice-dev libavcodec-dev libavutil-dev libswscale-dev ffmpeg \
+    libavformat-dev libavdevice-dev libavcodec-dev libavutil-dev libswscale-dev \
+    ffmpeg gstreamer1.0-libav gstreamer1.0-plugins-bad gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-ugly \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file
