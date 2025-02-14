@@ -17,9 +17,11 @@ ICE_SERVERS = [
     RTCIceServer(
         urls=["turn:46.8.31.7:3478?transport=udp", "turn:46.8.31.7:3478?transport=tcp"],
         username="webrtcuser",
-        credential="strongpassword"
+        credential="strongpassword",
+        credentialType="password"
     )
 ]
+
 
 RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
 
