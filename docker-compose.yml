@@ -32,8 +32,6 @@ services:
     image: nginx:latest
     container_name: nginx_proxy
     restart: always
-    depends_on:
-      - fastapi
     ports:
       - "80:80"
       - "443:443"
