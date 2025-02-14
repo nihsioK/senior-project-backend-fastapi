@@ -15,7 +15,7 @@ from fractions import Fraction
 
 logging.basicConfig(level=logging.INFO)
 
-# Use a public STUN server.
+# For simplicity, we use a public STUN server.
 ICE_SERVERS = [
     RTCIceServer(urls=["stun:stun.l.google.com:19302"])
 ]
@@ -98,7 +98,7 @@ async def set_connection(device_id, server_url, connection):
             logging.error(f"[Publisher] Error setting connection: {e}")
             return False
 
-# For minimal streaming, we keep the stream on.
+# For minimal streaming, we keep the stream on continuously.
 async def control_stream(device_id, video_track, server_url):
     while True:
         if not video_track.running:
@@ -114,8 +114,7 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
         return
 
     video_track = VideoCaptureTrack(device=camera_device)
-    # Start the stream so that an m=video line is generated.
-    await video_track.start_stream()
+    await video_track.start_stream()  # Ensure media flows (SDP includes m=video)
     pc.addTrack(video_track)
 
     offer = await pc.createOffer()

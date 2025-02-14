@@ -9,12 +9,12 @@ from aiortc import (
 from aiortc.contrib.media import MediaRelay
 from app.dependencies import publishers, subscriber_pcs
 
-# --- Begin RTX Decoder Override ---
+# ----- RTX Decoder Override -----
 from aiortc.codecs import get_decoder as original_get_decoder
 
 class DummyDecoder:
     async def decode(self, packet):
-        # Return empty list (no frames)
+        # Return an empty list of frames.
         return []
 
 def dummy_get_decoder(codec):
@@ -25,13 +25,13 @@ def dummy_get_decoder(codec):
 
 import aiortc.codecs
 aiortc.codecs.get_decoder = dummy_get_decoder
-# --- End RTX Decoder Override ---
+# ----- End RTX Decoder Override -----
 
 logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 relay = MediaRelay()
 
-# Use public STUN server for simplicity.
+# For simplicity, we use a public STUN server.
 ICE_SERVERS = [
     RTCIceServer(urls=["stun:stun.l.google.com:19302"])
 ]
@@ -41,8 +41,8 @@ RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
 @router.post("/offer")
 async def offer(request: Request):
     """
-    Accepts an SDP offer from a publisher or subscriber.
-    For publishers, it expects a video track to be present.
+    Accept an SDP offer from a publisher or subscriber.
+    For publishers, a video track is expected.
     """
     try:
         params = await request.json()
@@ -55,6 +55,7 @@ async def offer(request: Request):
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
 
+            # (Optionally, you could remove RTX lines from the SDP here.)
             pc = RTCPeerConnection(RTC_CONFIG)
             publishers[device_id] = {"pc": pc, "track": None, "streaming": True}
 
@@ -71,15 +72,13 @@ async def offer(request: Request):
                 else:
                     logging.info("[Cloud Server] Publisher ICE gathering complete.")
 
-            # Set the remote description and create an answer.
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
             return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
         elif role == "subscriber":
-            if (not device_id or device_id not in publishers or
-                publishers[device_id]["track"] is None):
+            if not device_id or device_id not in publishers or publishers[device_id]["track"] is None:
                 return {"error": f"No active publisher for device {device_id}"}
 
             pc = RTCPeerConnection(RTC_CONFIG)
