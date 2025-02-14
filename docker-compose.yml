@@ -7,13 +7,12 @@ services:
     restart: always
     depends_on:
       - db
-      - nginx
     environment:
       - DATABASE_URL=postgresql://dandevko:dandevko@db/senior_project
     expose:
       - "8080"
-    volumes:
-      - .:/app
+    networks:
+      - backend
 
   db:
     image: postgres:16
@@ -27,11 +26,15 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
 
   nginx:
     image: nginx:latest
     container_name: nginx_proxy
     restart: always
+    depends_on:
+      - fastapi
     ports:
       - "80:80"
       - "443:443"
