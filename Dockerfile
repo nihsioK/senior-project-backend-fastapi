@@ -1,26 +1,33 @@
-# Use an official Python runtime as a base image
-FROM python:3.10
+# Use a Python image with `uv` pre-installed
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-# Set the working directory
+# Set the working directory inside the container
 WORKDIR /app
 
-# Install uv package manager globally
-RUN pip install uv
+# Enable bytecode compilation for optimized performance
+ENV UV_COMPILE_BYTECODE=1
 
-# Copy the pyproject.toml and uv.lock files first (to leverage caching)
-COPY pyproject.toml uv.lock ./
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
 
-# Ensure a virtual environment is created and install dependencies
-RUN uv venv .venv && .venv/bin/uv pip install --system
+# Install dependencies using uv.lock and pyproject.toml
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
 
 # Copy the rest of the application code
-COPY . .
+ADD . /app
 
-# Expose the FastAPI application port
-EXPOSE 8080
+# Install the application itself separately from dependencies (better caching)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
-# **DEBUG STEP** Ensure everything is installed correctly
-RUN ls -la /app/.venv/bin/
+# Ensure the virtual environment executables are in the PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Use an absolute path to uvicorn
-CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Reset the entrypoint (we want a clean start)
+ENTRYPOINT []
+
+# Run FastAPI application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
