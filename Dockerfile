@@ -20,4 +20,4 @@ COPY . .
 EXPOSE 8080
 
 # Use uv venv to run the application
-CMD [".venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["app.main:app", "--host", "0.0.0.0", "--port", "8080"]
