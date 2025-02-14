@@ -22,7 +22,13 @@ async def offer(request: Request):
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
 
-            pc = RTCPeerConnection()
+            ice_servers = [
+                {"urls": "stun:stun.l.google.com:19302"},
+                {"urls": "turn:relay.metered.ca:80", "username": "open", "credential": "open"},
+                {"urls": "turn:relay.metered.ca:443", "username": "open", "credential": "open"}
+            ]
+
+            pc = RTCPeerConnection({"iceServers": ice_servers})
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
 
             @pc.on("track")
@@ -33,7 +39,10 @@ async def offer(request: Request):
 
             @pc.on("icecandidate")
             async def on_ice_candidate(candidate):
-                print(f"[Cloud Server] Publisher (device {device_id}) ICE candidate: {candidate}")
+                if candidate:
+                    print(f"[Cloud Server] ICE candidate: {candidate.to_sdp()}")
+                else:
+                    print("[Cloud Server] ICE gathering complete.")
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
