@@ -15,18 +15,16 @@ from fractions import Fraction
 
 logging.basicConfig(level=logging.INFO)
 
-# Use a public STUN server for simplicity.
+# Use a public STUN server.
 ICE_SERVERS = [
-    RTCIceServer(
-        urls=["stun:stun.l.google.com:19302"]
-    )
+    RTCIceServer(urls=["stun:stun.l.google.com:19302"])
 ]
 
 RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
 
 class VideoCaptureTrack(VideoStreamTrack):
     """
-    Captures frames from a local camera using OpenCV.
+    Captures video frames from a local camera using OpenCV.
     """
     def __init__(self, device=0, fps=30):
         super().__init__()
@@ -100,7 +98,7 @@ async def set_connection(device_id, server_url, connection):
             logging.error(f"[Publisher] Error setting connection: {e}")
             return False
 
-# For simplicity, we keep the stream running continuously.
+# For minimal streaming, we keep the stream on.
 async def control_stream(device_id, video_track, server_url):
     while True:
         if not video_track.running:
@@ -116,7 +114,8 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
         return
 
     video_track = VideoCaptureTrack(device=camera_device)
-    await video_track.start_stream()  # Ensure media is flowing (m=video appears in SDP)
+    # Start the stream so that an m=video line is generated.
+    await video_track.start_stream()
     pc.addTrack(video_track)
 
     offer = await pc.createOffer()

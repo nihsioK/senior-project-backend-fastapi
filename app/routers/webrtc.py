@@ -9,51 +9,40 @@ from aiortc import (
 from aiortc.contrib.media import MediaRelay
 from app.dependencies import publishers, subscriber_pcs
 
-# ----- BEGIN: Override RTX Decoder -----
+# --- Begin RTX Decoder Override ---
 from aiortc.codecs import get_decoder as original_get_decoder
-import aiortc.codecs
 
 class DummyDecoder:
     async def decode(self, packet):
-        # Simply return no frames.
+        # Return empty list (no frames)
         return []
 
-def get_decoder(codec):
+def dummy_get_decoder(codec):
     if codec.mimeType.lower() == "video/rtx":
         logging.info("Using dummy decoder for video/rtx")
         return DummyDecoder()
     return original_get_decoder(codec)
 
-aiortc.codecs.get_decoder = get_decoder
-# ----- END: Override RTX Decoder -----
+import aiortc.codecs
+aiortc.codecs.get_decoder = dummy_get_decoder
+# --- End RTX Decoder Override ---
 
 logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 relay = MediaRelay()
 
-# For simplicity, use a public STUN server.
+# Use public STUN server for simplicity.
 ICE_SERVERS = [
-    RTCIceServer(
-        urls=["stun:stun.l.google.com:19302"]
-    )
+    RTCIceServer(urls=["stun:stun.l.google.com:19302"])
 ]
 
 RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
-
-def remove_rtx_from_sdp(sdp: str) -> str:
-    """
-    Optionally, remove any SDP lines containing "rtx".
-    (You can comment this out if the dummy decoder handles RTX.)
-    """
-    lines = sdp.splitlines()
-    filtered = [line for line in lines if "rtx" not in line.lower()]
-    return "\r\n".join(filtered) + "\r\n"
 
 @router.post("/offer")
 async def offer(request: Request):
     """
     Accepts an SDP offer from a publisher or subscriber.
-    For publishers, we remove RTX lines from the incoming SDP.
+    For publishers, it expects a video track to be present.
     """
     try:
         params = await request.json()
@@ -65,8 +54,6 @@ async def offer(request: Request):
         if role == "publisher":
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
-            # Optionally remove RTX lines:
-            sdp = remove_rtx_from_sdp(sdp)
 
             pc = RTCPeerConnection(RTC_CONFIG)
             publishers[device_id] = {"pc": pc, "track": None, "streaming": True}
@@ -84,13 +71,15 @@ async def offer(request: Request):
                 else:
                     logging.info("[Cloud Server] Publisher ICE gathering complete.")
 
+            # Set the remote description and create an answer.
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
             return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
         elif role == "subscriber":
-            if not device_id or device_id not in publishers or publishers[device_id]["track"] is None:
+            if (not device_id or device_id not in publishers or
+                publishers[device_id]["track"] is None):
                 return {"error": f"No active publisher for device {device_id}"}
 
             pc = RTCPeerConnection(RTC_CONFIG)
@@ -123,6 +112,9 @@ async def offer(request: Request):
 
 @router.post("/set_stream")
 async def set_stream(request: Request):
+    """
+    Sets the "streaming" flag for a given publisher device.
+    """
     try:
         params = await request.json()
         device_id = params.get("device_id")
