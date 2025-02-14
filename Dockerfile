@@ -4,20 +4,23 @@ FROM python:3.10
 # Set the working directory
 WORKDIR /app
 
-# Install uv package manager
+# Install uv package manager globally
 RUN pip install uv
 
-# Copy the pyproject.toml and uv.lock files
+# Copy the pyproject.toml and uv.lock files first (to leverage caching)
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies using uv
-RUN uv sync
+# Ensure a virtual environment is created and install dependencies
+RUN uv venv .venv && .venv/bin/uv pip install --system
 
-# Copy the application code
+# Copy the rest of the application code
 COPY . .
 
 # Expose the FastAPI application port
 EXPOSE 8080
 
-# Use uv venv to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# **DEBUG STEP** Ensure everything is installed correctly
+RUN ls -la /app/.venv/bin/
+
+# Use an absolute path to uvicorn
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
