@@ -26,8 +26,8 @@ RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
 
 def remove_rtx_from_sdp(sdp: str) -> str:
     """
-    Remove any lines containing "rtx" (case-insensitive) from the SDP.
-    This prevents negotiation of RTX (retransmission) payloads.
+    Remove any SDP lines containing 'rtx' (case-insensitive) so that
+    no retransmission (RTX) payload is negotiated.
     """
     lines = sdp.splitlines()
     filtered = [line for line in lines if "rtx" not in line.lower()]
@@ -37,7 +37,7 @@ def remove_rtx_from_sdp(sdp: str) -> str:
 async def offer(request: Request):
     """
     Handle incoming SDP offers from publisher or subscriber.
-    For publishers, the incoming SDP is filtered to remove RTX-related lines.
+    For publishers, remove RTX lines from the SDP.
     """
     try:
         params = await request.json()
@@ -49,7 +49,8 @@ async def offer(request: Request):
         if role == "publisher":
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
-            # Remove RTX lines from the incoming SDP
+
+            # Remove RTX-related lines from the SDP
             sdp = remove_rtx_from_sdp(sdp)
 
             pc = RTCPeerConnection(RTC_CONFIG)
@@ -57,7 +58,6 @@ async def offer(request: Request):
 
             @pc.on("track")
             async def on_track(track):
-                # Since RTX was removed from the SDP, only the primary video track should arrive.
                 if track.kind == "video":
                     logging.info(f"[Cloud Server] Publisher '{device_id}' main video track received!")
                     publishers[device_id]["track"] = track
@@ -72,7 +72,6 @@ async def offer(request: Request):
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
-
             return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
         elif role == "subscriber":
@@ -80,7 +79,6 @@ async def offer(request: Request):
                 return {"error": f"No active publisher for device {device_id}"}
 
             pc = RTCPeerConnection(RTC_CONFIG)
-            # Relay the publisher's track to the subscriber
             local_video = relay.subscribe(publishers[device_id]["track"])
             pc.addTrack(local_video)
 
@@ -100,10 +98,12 @@ async def offer(request: Request):
             await pc.setLocalDescription(answer)
             subscriber_pcs.add(pc)
             return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
-
         else:
             return {"error": "Invalid role specified"}
 
+    except StopIteration as se:
+        logging.error("[Cloud Server] StopIteration caught: %s", se)
+        raise HTTPException(status_code=500, detail="Internal SDP negotiation error")
     except Exception as e:
         logging.error("[Cloud Server] Exception in /offer: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

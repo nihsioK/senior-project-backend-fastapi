@@ -37,17 +37,15 @@ class VideoCaptureTrack(VideoStreamTrack):
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.cap.set(cv2.CAP_PROP_FPS, 15)
-
         if not self.cap.isOpened():
             raise RuntimeError(f"Cannot open camera with index {device}")
-
         self.fps = fps
         self.time_base = Fraction(1, self.fps)
         self.next_pts = 0
         self.running = False
 
     async def recv(self):
-        """Capture a frame and return it as a VideoFrame."""
+        """Capture a frame from the camera and return it as a VideoFrame."""
         while not self.running:
             await asyncio.sleep(0.1)
         loop = asyncio.get_event_loop()
@@ -93,7 +91,7 @@ async def register_camera(device_id, server_url):
             return False
 
 async def set_connection(device_id, server_url, connection):
-    """Notify the server of connection status."""
+    """Notify the server of the connection status."""
     async with ClientSession() as session:
         try:
             response = await session.post(
@@ -110,9 +108,11 @@ async def set_connection(device_id, server_url, connection):
             logging.error(f"[Publisher] Error setting connection: {e}")
             return False
 
-# For testing, we simply start the stream once and keep it on.
 async def control_stream(device_id, video_track, server_url):
-    """Keep the stream running."""
+    """
+    For testing, we keep the stream on.
+    (In production you might poll the server for a flag.)
+    """
     while True:
         if not video_track.running:
             await video_track.start_stream()
@@ -123,7 +123,7 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
     Main steps:
       1. Register camera.
       2. Set connection to True.
-      3. Create and add the local video track.
+      3. Create the local video track, start it, and add to the PeerConnection.
       4. Create an SDP offer and send it to the server.
       5. Set the remote description from the server's answer.
       6. Start the stream control task.
@@ -137,6 +137,8 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
         return
 
     video_track = VideoCaptureTrack(device=camera_device)
+    # Start the track so that it produces media (this is important for SDP negotiation)
+    await video_track.start_stream()
     pc.addTrack(video_track)
 
     offer = await pc.createOffer()
@@ -166,7 +168,7 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
     asyncio.create_task(control_stream(device_id, video_track, cloud_server_url))
 
 async def cleanup(device_id, server_url, pc):
-    """Notify the server and close the peer connection."""
+    """Notify the server and close the PeerConnection."""
     logging.info("[Publisher] Cleaning up before exit...")
     try:
         await set_connection(device_id, server_url, False)
