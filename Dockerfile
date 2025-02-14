@@ -4,9 +4,9 @@ FROM python:3.12-slim
 # Set the working directory
 WORKDIR /app
 
-# Install only the necessary runtime dependencies (faster installation)
+# Install only the necessary runtime dependencies (corrected package names)
 RUN apt update && apt install -y --no-install-recommends \
-    libavformat58 libavdevice58 libavcodec58 libavutil56 libswscale6 \
+    libavformat-dev libavdevice-dev libavcodec-dev libavutil-dev libswscale-dev ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file
