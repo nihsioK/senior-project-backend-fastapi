@@ -15,13 +15,10 @@ from fractions import Fraction
 
 logging.basicConfig(level=logging.INFO)
 
-# TURN server configuration
+# For simplicity, use a public STUN server.
 ICE_SERVERS = [
     RTCIceServer(
-        urls=["turn:46.8.31.7:3478?transport=udp", "turn:46.8.31.7:3478?transport=tcp"],
-        username="webrtcuser",
-        credential="strongpassword",
-        credentialType="password"
+        urls=["stun:stun.l.google.com:19302"]
     )
 ]
 
@@ -29,7 +26,7 @@ RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
 
 class VideoCaptureTrack(VideoStreamTrack):
     """
-    A VideoStreamTrack that captures frames from a local camera using OpenCV.
+    Captures frames from a local camera via OpenCV.
     """
     def __init__(self, device=0, fps=30):
         super().__init__()
@@ -45,7 +42,6 @@ class VideoCaptureTrack(VideoStreamTrack):
         self.running = False
 
     async def recv(self):
-        """Capture a frame from the camera and return it as a VideoFrame."""
         while not self.running:
             await asyncio.sleep(0.1)
         loop = asyncio.get_event_loop()
@@ -61,19 +57,16 @@ class VideoCaptureTrack(VideoStreamTrack):
         return video_frame
 
     async def start_stream(self):
-        """Enable streaming."""
         if not self.running:
             self.running = True
             logging.info("[Publisher] Streaming started.")
 
     async def stop_stream(self):
-        """Disable streaming."""
         if self.running:
             self.running = False
             logging.info("[Publisher] Streaming stopped.")
 
 async def register_camera(device_id, server_url):
-    """Register the camera with the server."""
     async with ClientSession() as session:
         try:
             response = await session.post(
@@ -91,7 +84,6 @@ async def register_camera(device_id, server_url):
             return False
 
 async def set_connection(device_id, server_url, connection):
-    """Notify the server of the connection status."""
     async with ClientSession() as session:
         try:
             response = await session.post(
@@ -108,37 +100,23 @@ async def set_connection(device_id, server_url, connection):
             logging.error(f"[Publisher] Error setting connection: {e}")
             return False
 
+# For simplicity, always keep the stream on.
 async def control_stream(device_id, video_track, server_url):
-    """
-    For testing, we keep the stream on.
-    (In production you might poll the server for a flag.)
-    """
     while True:
         if not video_track.running:
             await video_track.start_stream()
         await asyncio.sleep(10)
 
 async def run(pc, session, cloud_server_url, camera_device, device_id):
-    """
-    Main steps:
-      1. Register camera.
-      2. Set connection to True.
-      3. Create the local video track, start it, and add to the PeerConnection.
-      4. Create an SDP offer and send it to the server.
-      5. Set the remote description from the server's answer.
-      6. Start the stream control task.
-    """
     if not await register_camera(device_id, cloud_server_url):
         logging.error("[Publisher] Exiting: camera registration failed.")
         return
-
     if not await set_connection(device_id, cloud_server_url, True):
         logging.error("[Publisher] Exiting: connection setup failed.")
         return
 
     video_track = VideoCaptureTrack(device=camera_device)
-    # Start the track so that it produces media (this is important for SDP negotiation)
-    await video_track.start_stream()
+    await video_track.start_stream()  # Ensure the track is active so SDP includes m=video
     pc.addTrack(video_track)
 
     offer = await pc.createOffer()
@@ -161,14 +139,12 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
     if answer.get("error"):
         logging.error(f"[Publisher] Error in publisher SDP answer: {answer['error']}")
         return
-
     await pc.setRemoteDescription(RTCSessionDescription(sdp=answer["sdp"], type=answer["type"]))
     logging.info(f"[Publisher] Publisher connection established for device: {device_id}")
 
     asyncio.create_task(control_stream(device_id, video_track, cloud_server_url))
 
 async def cleanup(device_id, server_url, pc):
-    """Notify the server and close the PeerConnection."""
     logging.info("[Publisher] Cleaning up before exit...")
     try:
         await set_connection(device_id, server_url, False)
