@@ -25,10 +25,6 @@ ICE_SERVERS = [
 
 RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
 
-
-
-RTC_CONFIG = RTCConfiguration(iceServers=ICE_SERVERS)
-
 class VideoCaptureTrack(VideoStreamTrack):
     def __init__(self, device=0, fps=30):
         super().__init__()

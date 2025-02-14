@@ -1,5 +1,4 @@
 version: "3.8"
-
 services:
   fastapi:
     build: .
@@ -45,9 +44,21 @@ services:
       - ./static:/usr/share/nginx/html/static
     networks:
       - backend
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
+
+  coturn:
+    image: instrumentisto/coturn
+    container_name: coturn_service
+    restart: always
+    # Map TURN ports from host to container:
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "40000-40050:40000-40050/udp"
+      - "40000-40050:40000-40050/tcp"
+    volumes:
+      - ./config/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    networks:
+      - backend
 
 volumes:
   postgres_data:
