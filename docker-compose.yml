@@ -49,16 +49,9 @@ services:
     image: instrumentisto/coturn
     container_name: coturn_service
     restart: always
-    # Map TURN ports from host to container:
-    ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "40000-40050:40000-40050/udp"
-      - "40000-40050:40000-40050/tcp"
+    network_mode: "host"
     volumes:
       - ./config/turnserver.conf:/etc/coturn/turnserver.conf:ro
-    networks:
-      - backend
 
 volumes:
   postgres_data:
