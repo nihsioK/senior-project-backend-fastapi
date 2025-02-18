@@ -176,17 +176,16 @@ async def control_stream(device_id, video_track, server_url):
 
 async def run(pc, session, cloud_server_url, camera_device, device_id):
     # Configure ICE servers
-    pc.configuration =  RTCConfiguration(
-    iceServers=[
-        RTCIceServer(urls="stun:stun.l.google.com:19302"),
-        RTCIceServer(
-            urls="turn:46.8.31.7:3478",
-            username="turnuser",
-            credential="turnpass"
-        )
-    ]
-)
-
+    pc.configuration = RTCConfiguration(
+        iceServers=[
+            RTCIceServer(urls="stun:stun.l.google.com:19302"),
+            RTCIceServer(
+                urls="turn:relay1.expressturn.com:3478",
+                username="ef7583",
+                credential="JjJzV0rBbI"
+            )
+        ]
+    )
 
     if not await register_camera(device_id, cloud_server_url):
         print("[Publisher] Exiting due to camera registration failure.")
