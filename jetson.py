@@ -180,27 +180,23 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
         iceServers=[
             RTCIceServer(urls="stun:stun.relay.metered.ca:80"),
             RTCIceServer(
-                urls = "turn:global.relay.metered.ca:80",
-                username = "76d9bd49690a5fdc1e4e3760",
-                credential = "00pjOIhDISNLEWhB",
+                urls="turn:global.relay.metered.ca:80",
+                username="76d9bd49690a5fdc1e4e3760",
+                credential="00pjOIhDISNLEWhB",
             ),
             RTCIceServer(
-                urls = "turn:global.relay.metered.ca:80?transport=tcp",
-                username = "76d9bd49690a5fdc1e4e3760",
-                credential = "00pjOIhDISNLEWhB",
+                urls="turn:global.relay.metered.ca:443",
+                username="76d9bd49690a5fdc1e4e3760",
+                credential="00pjOIhDISNLEWhB",
             ),
             RTCIceServer(
-                urls = "turn:global.relay.metered.ca:443",
-                username = "76d9bd49690a5fdc1e4e3760",
-                credential = "00pjOIhDISNLEWhB",
+                urls="turns:global.relay.metered.ca:443",
+                username="76d9bd49690a5fdc1e4e3760",
+                credential="00pjOIhDISNLEWhB",
             ),
-            RTCIceServer(
-                urls = "turns:global.relay.metered.ca:443?transport=tcp",
-                username = "76d9bd49690a5fdc1e4e3760",
-                credential = "00pjOIhDISNLEWhB",
-            )
         ]
     )
+
 
     if not await register_camera(device_id, cloud_server_url):
         print("[Publisher] Exiting due to camera registration failure.")
