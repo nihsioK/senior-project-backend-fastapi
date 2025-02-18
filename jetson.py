@@ -5,32 +5,10 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, R
 import cv2
 from av import VideoFrame
 from fractions import Fraction
-import requests
-
-API_KEY = "2492bffdb915ca4e706d051ea6bb8de323ff"
-
-# def get_turn_credentials():
-#     url = f"https://senior.metered.live/api/v1/turn/credentials?apiKey={API_KEY}"
-#     response = requests.get(url)
-#
-#     if response.status_code == 200:
-#         turn_servers = response.json()
-#         return [
-#             RTCIceServer(
-#                 urls=server["urls"],  # Keep only TCP transport
-#                 username=server.get("username", ""),
-#                 credential=server.get("credential", "")
-#             )
-#             for server in turn_servers if "transport=tcp" in server["urls"]
-#         ]
-#     else:
-#         print(f"Failed to fetch TURN credentials: {response.status_code}")
-#         return []
-
 
 ice_servers = [
-    RTCIceServer(urls="turn:46.8.31.7:3478", username="testuser", credential="supersecretpassword"),
-    RTCIceServer(urls="turns:46.8.31.7:5349", username="testuser", credential="supersecretpassword")
+    RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
+    RTCIceServer(urls="turns:senior-backend.xyz:5349", username="testuser", credential="supersecretpassword")
 ]
 
 

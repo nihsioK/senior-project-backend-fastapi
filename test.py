@@ -1,28 +1,35 @@
-from aiortc import RTCConfiguration, RTCIceServer
-import requests
+from aiortc import RTCPeerConnection, RTCIceServer, RTCConfiguration
+import asyncio
 
+async def test_turn():
+    config = RTCConfiguration(iceServers=[
+        RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
+        RTCIceServer(urls="turns:senior-backend.xyz:5349", username="testuser", credential="supersecretpassword")
+    ])
 
-def get_turn_credentials():
-    API_KEY = "2492bffdb915ca4e706d051ea6bb8de323ff"
-    TURN_CREDENTIALS_URL = f"https://senior.metered.live/api/v1/turn/credentials?apiKey={API_KEY}"
+    pc = RTCPeerConnection(configuration=config)
 
-    response = requests.get(TURN_CREDENTIALS_URL)
-    if response.status_code == 200:
-        turn_servers = response.json()
-        return [
-            RTCIceServer(
-                urls=server["urls"],
-                username=server.get("username", ""),
-                credential=server.get("credential", "")
-            )
-            for server in turn_servers
-        ]
-    else:
-        print(f"Failed to fetch TURN credentials: {response.status_code}")
-        return []
+    # Создаём DataChannel
+    channel = pc.createDataChannel("testChannel")
 
+    @pc.on("icecandidate")
+    def on_ice_candidate(event):
+        if event.candidate:
+            print(f"New ICE Candidate: {event.candidate}")
 
-# Apply the dynamically fetched credentials
-ICE_CONFIGURATION = RTCConfiguration(iceServers=get_turn_credentials())
+    offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
 
-print("Final ICE Configuration:", ICE_CONFIGURATION.iceServers)
+    # Ожидаем ICE-кандидатов
+    await asyncio.sleep(5)
+
+    # Получаем ICE-кандидаты корректно
+    ice_candidates = []
+    for transceiver in pc.getTransceivers():
+        if transceiver.sender.transport:
+            candidate = transceiver.sender.transport.iceGatherer.getLocalCandidates()
+            ice_candidates.extend(candidate)
+
+    print("✅ ICE candidates:", ice_candidates)
+
+asyncio.run(test_turn())
