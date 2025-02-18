@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
 from aiortc.contrib.media import MediaRelay
 
 from app.dependencies import publishers, subscriber_pcs
@@ -8,16 +8,21 @@ router = APIRouter()
 
 relay = MediaRelay()
 
+iceServers = [
+
+]
+
 ICE_CONFIGURATION = RTCConfiguration(
     iceServers=[
-        {"urls": ["stun:stun.l.google.com:19302"]},
-        {
-            "urls": ["turn:YOUR_VPS_IP:3478"],
-            "username": "turnuser",
-            "credential": "turnpass"
-        }
+        RTCIceServer(urls="stun:stun.l.google.com:19302"),
+        RTCIceServer(
+            urls="turn:46.8.31.7:3478",
+            username="turnuser",
+            credential="turnpass"
+        )
     ]
 )
+
 
 
 @router.post("/offer")
