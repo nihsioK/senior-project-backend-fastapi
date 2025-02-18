@@ -181,8 +181,8 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
             RTCIceServer(urls="stun:stun.l.google.com:19302"),
             RTCIceServer(
                 urls="turn:relay1.expressturn.com:3478",
-                username="ef7583",
-                credential="JjJzV0rBbI"
+                username="ef1CAI4TRB0YYDEWU6",
+                credential="1NKAk3oDzj4IH2yP"
             )
         ]
     )
