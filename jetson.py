@@ -5,6 +5,30 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, R
 import cv2
 from av import VideoFrame
 from fractions import Fraction
+import requests
+
+API_KEY = "2492bffdb915ca4e706d051ea6bb8de323ff"
+
+def get_turn_credentials():
+    url = f"https://senior.metered.live/api/v1/turn/credentials?apiKey={API_KEY}"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        turn_servers = response.json()
+        return [
+            RTCIceServer(
+                urls=server["urls"],
+                username=server.get("username", ""),
+                credential=server.get("credential", "")
+            )
+            for server in turn_servers
+        ]
+    else:
+        print(f"Failed to fetch TURN credentials: {response.status_code}")
+        return []
+
+# Fetch credentials dynamically before WebRTC connection
+# ICE_CONFIGURATION = RTCConfiguration(iceServers=get_turn_credentials())
 
 
 class VideoCaptureTrack(VideoStreamTrack):
@@ -176,26 +200,7 @@ async def control_stream(device_id, video_track, server_url):
 
 async def run(pc, session, cloud_server_url, camera_device, device_id):
     # Configure ICE servers
-    pc.configuration = RTCConfiguration(
-        iceServers=[
-            RTCIceServer(urls="stun:stun.relay.metered.ca:80"),
-            RTCIceServer(
-                urls="turn:global.relay.metered.ca:80",
-                username="76d9bd49690a5fdc1e4e3760",
-                credential="00pjOIhDISNLEWhB",
-            ),
-            RTCIceServer(
-                urls="turn:global.relay.metered.ca:443",
-                username="76d9bd49690a5fdc1e4e3760",
-                credential="00pjOIhDISNLEWhB",
-            ),
-            RTCIceServer(
-                urls="turns:global.relay.metered.ca:443",
-                username="76d9bd49690a5fdc1e4e3760",
-                credential="00pjOIhDISNLEWhB",
-            ),
-        ]
-    )
+    pc.configuration = RTCConfiguration(iceServers=get_turn_credentials())
 
 
     if not await register_camera(device_id, cloud_server_url):
