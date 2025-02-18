@@ -19,13 +19,16 @@ def get_turn_credentials():
             RTCIceServer(
                 urls=server["urls"],
                 username=server.get("username", ""),
-                credential=server.get("credential", "")
+                credential=server.get("credential", ""),
+                credentialType="password"  # ✅ Explicitly set credential type
             )
             for server in turn_servers
-        ]
+        ] + [RTCIceServer(urls="stun:stun.l.google.com:19302")]  # ✅ Google STUN as fallback
     else:
         print(f"Failed to fetch TURN credentials: {response.status_code}")
         return []
+
+
 
 # Fetch credentials dynamically before WebRTC connection
 # ICE_CONFIGURATION = RTCConfiguration(iceServers=get_turn_credentials())
@@ -218,7 +221,9 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
     @pc.on("icecandidate")
     def on_ice_candidate(candidate):
         if candidate:
-            print(f"[Publisher] New ICE candidate: {candidate}")
+            print(f"[Publisher] New ICE Candidate: {candidate}")
+        else:
+            print("[Publisher] ICE Candidate gathering finished.")
 
     @pc.on("iceconnectionstatechange")
     async def on_ice_connection_state_change():
@@ -229,6 +234,8 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
 
     offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
+
+    await asyncio.sleep(2)
 
     print("[Publisher] Sending SDP Offer:", offer)
     response = await session.post(f"{cloud_server_url}/offer", json={

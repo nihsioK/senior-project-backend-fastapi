@@ -16,13 +16,16 @@ def get_turn_credentials():
             RTCIceServer(
                 urls=server["urls"],
                 username=server.get("username", ""),
-                credential=server.get("credential", "")
+                credential=server.get("credential", ""),
+                credentialType="password"  # ✅ Explicitly set credential type
             )
             for server in turn_servers
-        ]
+        ] + [RTCIceServer(urls="stun:stun.l.google.com:19302")]  # ✅ Google STUN as fallback
     else:
         print(f"Failed to fetch TURN credentials: {response.status_code}")
         return []
+
+
 
 # Fetch credentials dynamically before WebRTC connection
 ICE_CONFIGURATION = RTCConfiguration(iceServers=get_turn_credentials())
@@ -31,9 +34,7 @@ router = APIRouter()
 
 relay = MediaRelay()
 
-iceServers = [
 
-]
 
 # ICE_CONFIGURATION = RTCConfiguration(
 #     iceServers=[
@@ -57,7 +58,8 @@ iceServers = [
 # )
 
 
-
+def get_ice_configuration():
+    return RTCConfiguration(iceServers=get_turn_credentials())
 
 
 @router.post("/offer")
@@ -73,7 +75,7 @@ async def offer(request: Request):
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
 
-            pc = RTCPeerConnection(configuration=ICE_CONFIGURATION)
+            pc = RTCPeerConnection(configuration=get_ice_configuration())  # ✅ Fetch credentials dynamically
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
 
             @pc.on("iceconnectionstatechange")
@@ -87,6 +89,13 @@ async def offer(request: Request):
                 if track.kind == "video":
                     print(f"[Cloud Server] Publisher '{device_id}' video track received!")
                     publishers[device_id]["track"] = track
+
+            @pc.on("icecandidate")
+            def on_ice_candidate(candidate):
+                if candidate:
+                    print(f"[Cloud Server] New ICE Candidate: {candidate}")
+                else:
+                    print("[Cloud Server] ICE Candidate gathering finished.")
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
