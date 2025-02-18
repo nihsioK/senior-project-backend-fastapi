@@ -13,15 +13,30 @@ iceServers = [
 ]
 
 ICE_CONFIGURATION = RTCConfiguration(
-    iceServers=[
-        RTCIceServer(urls="stun:stun.l.google.com:19302"),
-        RTCIceServer(
-            urls="turn:192.158.29.39:3478?transport=udp",
-            username="28224511:1379330808",
-            credential="JZEOEt2V3Qb0y27GRntt2u2PAYA="
-        )
-    ]
-)
+        iceServers=[
+            RTCIceServer(urls="stun:stun.relay.metered.ca:80"),
+            RTCIceServer(
+                urls = "turn:global.relay.metered.ca:80",
+                username = "76d9bd49690a5fdc1e4e3760",
+                credential = "00pjOIhDISNLEWhB",
+            ),
+            RTCIceServer(
+                urls = "turn:global.relay.metered.ca:80?transport=tcp",
+                username = "76d9bd49690a5fdc1e4e3760",
+                credential = "00pjOIhDISNLEWhB",
+            ),
+            RTCIceServer(
+                urls = "turn:global.relay.metered.ca:443",
+                username = "76d9bd49690a5fdc1e4e3760",
+                credential = "00pjOIhDISNLEWhB",
+            ),
+            RTCIceServer(
+                urls = "turns:global.relay.metered.ca:443?transport=tcp",
+                username = "76d9bd49690a5fdc1e4e3760",
+                credential = "00pjOIhDISNLEWhB",
+            )
+        ]
+    )
 
 
 
