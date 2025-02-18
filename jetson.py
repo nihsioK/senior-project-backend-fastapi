@@ -17,16 +17,16 @@ def get_turn_credentials():
         turn_servers = response.json()
         return [
             RTCIceServer(
-                urls=server["urls"],
+                urls=server["urls"],  # Keep only TCP transport
                 username=server.get("username", ""),
-                credential=server.get("credential", ""),
-                credentialType="password"  # ✅ Explicitly set credential type
+                credential=server.get("credential", "")
             )
-            for server in turn_servers
-        ] + [RTCIceServer(urls="stun:stun.l.google.com:19302")]  # ✅ Google STUN as fallback
+            for server in turn_servers if "transport=tcp" in server["urls"]
+        ]
     else:
         print(f"Failed to fetch TURN credentials: {response.status_code}")
         return []
+
 
 class VideoCaptureTrack(VideoStreamTrack):
     def __init__(self, device=0, fps=30):
