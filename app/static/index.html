@@ -19,9 +19,23 @@
     </style>
     <script>
       let pc = null;
-      let currentDevice = null; // device_id of the currently viewed camera
+      let currentDevice = null;
 
-      // Fetch and display the list of available devices.
+      const ICE_CONFIGURATION = {
+        iceServers: [
+          {
+            urls: "stun:stun.l.google.com:19302"
+          },
+          {
+            urls: "turn:46.8.31.7:3478",
+            username: "turnuser",
+            credential: "turnpass"
+          }
+        ],
+        iceTransportPolicy: "all",
+        iceCandidatePoolSize: 10
+      };
+
       async function loadDevices() {
         const response = await fetch("/cameras/get_all");
         const devices = await response.json();
@@ -38,27 +52,20 @@
         });
       }
 
-
-      // When a device is selected, instruct the server to start streaming
-      // for that device and then start the subscriber connection.
       async function selectDevice(device_id) {
         console.log("Selected device:", device_id);
         currentDevice = device_id;
-        // Instruct the server: set streaming true for the selected device.
         await fetch("/cameras/set_stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ camera_id: device_id, stream: true }),
         });
-        // Start viewing the stream.
         await startStream();
       }
 
-      // When stopping viewing, instruct the server to stop streaming for that device.
       async function stopViewing() {
         if (!currentDevice) return;
         console.log("Stopping viewing for device:", currentDevice);
-        // Instruct the server: set streaming false.
         await fetch("/cameras/set_stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -71,61 +78,59 @@
       async function startStream() {
         try {
           if (pc) {
-            console.warn("WebRTC connection already exists. Restarting...");
+            console.warn("WebRTC connection exists. Restarting...");
             stopStream();
           }
-          pc = new RTCPeerConnection({
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-          });
 
-          // Add a transceiver for video (recvonly).
+          pc = new RTCPeerConnection(ICE_CONFIGURATION);
+
           pc.addTransceiver("video", { direction: "recvonly" });
+
+          // Add ICE candidate handling
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              console.log("New ICE candidate:", event.candidate);
+            }
+          };
 
           pc.oniceconnectionstatechange = () => {
             console.log("ICE Connection State:", pc.iceConnectionState);
-            if (
-              pc.iceConnectionState === "disconnected" ||
-              pc.iceConnectionState === "failed"
-            ) {
-              console.error("ICE Connection failed. Restarting stream...");
-              stopStream();
+            document.getElementById("status").textContent = pc.iceConnectionState;
+
+            if (["disconnected", "failed"].includes(pc.iceConnectionState)) {
+              console.error("ICE Connection failed. Attempting reconnection...");
+              setTimeout(() => {
+                if (currentDevice) {
+                  startStream();
+                }
+              }, 2000);
             }
           };
 
           pc.ontrack = (event) => {
             console.log("📡 Received track:", event.track.kind);
             const videoElement = document.getElementById("video");
-            videoElement.muted = true; // Required for autoplay.
+            videoElement.muted = true;
+
             if (event.streams && event.streams[0]) {
-              console.log("📡 Received video stream:", event.streams[0]);
-              if (videoElement.srcObject !== event.streams[0]) {
-                console.log("✅ Assigning new video stream");
-                videoElement.srcObject = event.streams[0];
-                videoElement.onloadedmetadata = () => {
-                  console.log("📶 Metadata loaded. Attempting to play video.");
-                  videoElement
-                    .play()
-                    .then(() => {
-                      console.log("🎥 Video is playing!");
-                    })
-                    .catch((err) => {
-                      console.error("🚨 Error playing video:", err);
-                      showPlayButton(videoElement);
-                    });
-                };
-              } else {
-                console.log("🔄 Stream already assigned.");
-              }
-            } else {
-              console.warn("🚨 No stream available for the video track.");
+              console.log("📡 Received stream:", event.streams[0]);
+              videoElement.srcObject = event.streams[0];
+
+              videoElement.onloadedmetadata = () => {
+                console.log("📶 Metadata loaded. Playing video.");
+                videoElement.play()
+                  .then(() => console.log("🎥 Video playing!"))
+                  .catch((err) => {
+                    console.error("🚨 Play error:", err);
+                    showPlayButton(videoElement);
+                  });
+              };
             }
           };
 
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-          console.log("Sending SDP Offer:", offer);
 
-          // Send the offer to the server with role "subscriber" and the current device id.
           const response = await fetch("/offer", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -136,54 +141,47 @@
               device_id: currentDevice,
             }),
           });
+
           const answer = await response.json();
           if (answer.error) {
-            console.error("Error in SDP answer:", answer.error);
+            console.error("SDP answer error:", answer.error);
             return;
           }
-          console.log("Received SDP answer:", answer);
-          await pc
-            .setRemoteDescription(answer)
-            .then(() => console.log("Remote description set successfully"))
-            .catch((err) => {
-              console.error("Error setting remote description:", err);
-              stopStream();
-            });
+
+          await pc.setRemoteDescription(answer);
+          console.log("Remote description set successfully");
         } catch (e) {
-          console.error("Error during startStream:", e);
+          console.error("Stream error:", e);
+          document.getElementById("status").textContent = "Error: " + e.message;
         }
       }
 
       function stopStream() {
         if (pc) {
-          console.log("Closing subscriber WebRTC connection...");
           pc.close();
           pc = null;
         }
         const videoElement = document.getElementById("video");
         if (videoElement.srcObject) {
-          videoElement.srcObject.getTracks().forEach((track) => track.stop());
+          videoElement.srcObject.getTracks().forEach(track => track.stop());
           videoElement.srcObject = null;
         }
+        document.getElementById("status").textContent = "Stopped";
       }
 
       function showPlayButton(videoElement) {
         const playButton = document.getElementById("playButton");
         playButton.style.display = "block";
-        playButton.addEventListener("click", () => {
-          videoElement
-            .play()
+        playButton.onclick = () => {
+          videoElement.play()
             .then(() => {
-              console.log("✅ Video started after user interaction");
               playButton.style.display = "none";
+              console.log("✅ Video started");
             })
-            .catch((err) => {
-              console.error("🚨 Video still unable to play:", err);
-            });
-        });
+            .catch(err => console.error("🚨 Play failed:", err));
+        };
       }
 
-      // Reload available devices on page load and every 5 seconds.
       window.onload = () => {
         loadDevices();
         setInterval(loadDevices, 5000);
@@ -192,9 +190,7 @@
   </head>
   <body>
     <h1>WebRTC Multi‑Device Viewer</h1>
-    <div id="devices">
-      <!-- Buttons for each available device will appear here -->
-    </div>
+    <div id="devices"></div>
     <button onclick="stopViewing()">Stop Viewing</button>
     <br /><br />
     <video

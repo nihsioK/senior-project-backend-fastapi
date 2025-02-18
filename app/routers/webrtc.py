@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration
 from aiortc.contrib.media import MediaRelay
 
 from app.dependencies import publishers, subscriber_pcs
@@ -7,6 +7,18 @@ from app.dependencies import publishers, subscriber_pcs
 router = APIRouter()
 
 relay = MediaRelay()
+
+ICE_CONFIGURATION = RTCConfiguration(
+    iceServers=[
+        {"urls": ["stun:stun.l.google.com:19302"]},
+        {
+            "urls": ["turn:YOUR_VPS_IP:3478"],
+            "username": "turnuser",
+            "credential": "turnpass"
+        }
+    ]
+)
+
 
 @router.post("/offer")
 async def offer(request: Request):
@@ -20,8 +32,15 @@ async def offer(request: Request):
         if role == "publisher":
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
-            pc = RTCPeerConnection()
+
+            pc = RTCPeerConnection(configuration=ICE_CONFIGURATION)
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
+
+            @pc.on("iceconnectionstatechange")
+            async def on_ice_state_change():
+                print(f"[Cloud Server] Publisher '{device_id}' ICE state:", pc.iceConnectionState)
+                if pc.iceConnectionState in ["failed", "disconnected"]:
+                    print(f"[Cloud Server] Publisher '{device_id}' connection failed.")
 
             @pc.on("track")
             async def on_track(track):
@@ -39,13 +58,15 @@ async def offer(request: Request):
             if not device_id or device_id not in publishers or publishers[device_id]["track"] is None:
                 return {"error": f"No active publisher for device {device_id}"}
 
-            pc = RTCPeerConnection()
+            pc = RTCPeerConnection(configuration=ICE_CONFIGURATION)
             local_video = relay.subscribe(publishers[device_id]["track"])
             pc.addTrack(local_video)
 
             @pc.on("iceconnectionstatechange")
             async def on_ice_state_change():
                 print(f"[Cloud Server] Subscriber (device {device_id}) ICE state:", pc.iceConnectionState)
+                if pc.iceConnectionState in ["failed", "disconnected"]:
+                    print(f"[Cloud Server] Subscriber connection failed for device {device_id}")
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()

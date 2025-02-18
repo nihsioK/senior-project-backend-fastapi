@@ -45,14 +45,6 @@ services:
     networks:
       - backend
 
-  coturn:
-    image: instrumentisto/coturn
-    container_name: coturn_service
-    restart: always
-    network_mode: "host"
-    volumes:
-      - ./config/turnserver.conf:/etc/coturn/turnserver.conf:ro
-
 volumes:
   postgres_data:
 

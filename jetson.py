@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 from aiohttp import ClientSession
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCConfiguration
 import cv2
 from av import VideoFrame
 from fractions import Fraction
@@ -175,28 +175,18 @@ async def control_stream(device_id, video_track, server_url):
 
 
 async def run(pc, session, cloud_server_url, camera_device, device_id):
-    """
-        Asynchronously establishes a WebRTC publishing connection for a camera device,
-        setting up tracks, exchanging session descriptions, and managing the stream control.
+    # Configure ICE servers
+    pc.configuration = RTCConfiguration(
+        iceServers=[
+            {"urls": ["stun:stun.l.google.com:19302"]},
+            {
+                "urls": ["turn:46.8.31.7:3478"],
+                "username": "turnuser",
+                "credential": "turnpass"
+            }
+        ]
+    )
 
-        This function registers the camera, establishes a connection, creates SDP offers,
-        processes SDP answers, and initializes the video stream, making the device ready
-        to publish its feed via the specified cloud server.
-
-        Parameters:
-            pc (aiortc.RTCPeerConnection): The WebRTC peer connection instance to manage
-                media and signaling.
-            session (aiohttp.ClientSession): The HTTP client session object for sending
-                network requests.
-            cloud_server_url (str): The URL of the cloud server for signaling and media
-                exchange.
-            camera_device (str): Identifier or configuration string representing the
-                camera device.
-            device_id (str): Unique identifier of the device to be registered and operated.
-
-        Raises:
-            None
-    """
     if not await register_camera(device_id, cloud_server_url):
         print("[Publisher] Exiting due to camera registration failure.")
         return
@@ -207,6 +197,19 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
 
     video_track = VideoCaptureTrack(device=camera_device)
     pc.addTrack(video_track)
+
+    # Add ICE candidate handling
+    @pc.on("icecandidate")
+    def on_ice_candidate(candidate):
+        if candidate:
+            print(f"[Publisher] New ICE candidate: {candidate}")
+
+    @pc.on("iceconnectionstatechange")
+    async def on_ice_connection_state_change():
+        print(f"[Publisher] ICE Connection State: {pc.iceConnectionState}")
+        if pc.iceConnectionState in ["failed", "disconnected"]:
+            print("[Publisher] ICE Connection failed. Attempting reconnection...")
+            # Implement reconnection logic here
 
     offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
