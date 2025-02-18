@@ -28,6 +28,12 @@ def get_turn_credentials():
         return []
 
 
+ice_servers = [
+    RTCIceServer(urls="turn:46.8.31.7:3478", username="testuser", credential="supersecretpassword"),
+    RTCIceServer(urls="turns:46.8.31.7:5349", username="testuser", credential="supersecretpassword")
+]
+
+
 class VideoCaptureTrack(VideoStreamTrack):
     def __init__(self, device=0, fps=30):
         super().__init__()
@@ -123,7 +129,7 @@ async def control_stream(device_id, video_track, server_url):
 
 async def run(pc, session, cloud_server_url, camera_device, device_id):
     # Configure ICE servers
-    pc.configuration = RTCConfiguration(iceServers=get_turn_credentials())
+    pc.configuration = RTCConfiguration(iceServers=ice_servers)
 
 
     if not await register_camera(device_id, cloud_server_url):

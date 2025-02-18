@@ -24,6 +24,11 @@ def get_turn_credentials():
         print(f"Failed to fetch TURN credentials: {response.status_code}")
         return []
 
+ice_servers = [
+    RTCIceServer(urls="turn:46.8.31.7:3478", username="testuser", credential="supersecretpassword"),
+    RTCIceServer(urls="turns:46.8.31.7:5349", username="testuser", credential="supersecretpassword")
+]
+
 
 
 router = APIRouter()
@@ -47,7 +52,7 @@ async def offer(request: Request):
             if not device_id:
                 raise HTTPException(status_code=400, detail="Missing device_id for publisher")
 
-            pc = RTCPeerConnection(configuration=get_ice_configuration())  # ✅ Fetch credentials dynamically
+            pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=ice_servers))
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
 
             @pc.on("iceconnectionstatechange")
@@ -79,7 +84,7 @@ async def offer(request: Request):
             if not device_id or device_id not in publishers or publishers[device_id]["track"] is None:
                 return {"error": f"No active publisher for device {device_id}"}
 
-            pc = RTCPeerConnection(configuration=get_ice_configuration())
+            pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=ice_servers))
             local_video = relay.subscribe(publishers[device_id]["track"])
             pc.addTrack(local_video)
 
