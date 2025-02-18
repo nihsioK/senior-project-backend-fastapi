@@ -180,9 +180,9 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
         iceServers=[
             RTCIceServer(urls="stun:stun.l.google.com:19302"),
             RTCIceServer(
-                urls="turn:relay1.expressturn.com:3478",
-                username="ef1CAI4TRB0YYDEWU6",
-                credential="1NKAk3oDzj4IH2yP"
+                urls="turn:192.158.29.39:3478?transport=udp",
+                username="28224511:1379330808",
+                credential="JZEOEt2V3Qb0y27GRntt2u2PAYA="
             )
         ]
     )
