@@ -26,37 +26,9 @@ def get_turn_credentials():
         return []
 
 
-
-# Fetch credentials dynamically before WebRTC connection
-ICE_CONFIGURATION = RTCConfiguration(iceServers=get_turn_credentials())
-
 router = APIRouter()
 
 relay = MediaRelay()
-
-
-
-# ICE_CONFIGURATION = RTCConfiguration(
-#     iceServers=[
-#         RTCIceServer(urls="stun:stun.relay.metered.ca:80"),
-#         RTCIceServer(
-#             urls="turn:global.relay.metered.ca:80",
-#             username="76d9bd49690a5fdc1e4e3760",
-#             credential="00pjOIhDISNLEWhB",
-#         ),
-#         RTCIceServer(
-#             urls="turn:global.relay.metered.ca:443",
-#             username="76d9bd49690a5fdc1e4e3760",
-#             credential="00pjOIhDISNLEWhB",
-#         ),
-#         RTCIceServer(
-#             urls="turns:global.relay.metered.ca:443",
-#             username="76d9bd49690a5fdc1e4e3760",
-#             credential="00pjOIhDISNLEWhB",
-#         ),
-#     ]
-# )
-
 
 def get_ice_configuration():
     return RTCConfiguration(iceServers=get_turn_credentials())
@@ -107,7 +79,7 @@ async def offer(request: Request):
             if not device_id or device_id not in publishers or publishers[device_id]["track"] is None:
                 return {"error": f"No active publisher for device {device_id}"}
 
-            pc = RTCPeerConnection(configuration=ICE_CONFIGURATION)
+            pc = RTCPeerConnection(configuration=get_ice_configuration())
             local_video = relay.subscribe(publishers[device_id]["track"])
             pc.addTrack(local_video)
 

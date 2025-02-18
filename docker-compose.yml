@@ -39,11 +39,15 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "3478:3478/udp"  # ✅ Allow WebRTC TURN
+      - "5349:5349/tcp"  # ✅ Allow TURN over TLS
+      - "40000-65535:40000-65535/udp"  # ✅ Allow WebRTC relay candidates
     volumes:
       - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./static:/usr/share/nginx/html/static
     networks:
       - backend
+
 
 volumes:
   postgres_data:
