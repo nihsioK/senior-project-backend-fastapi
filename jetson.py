@@ -169,6 +169,7 @@ async def cleanup(device_id, cloud_server_url):
     print("[Publisher] Cleaning up before exit...")
     try:
         await set_connection(device_id, cloud_server_url, False)
+
     except Exception as e:
         print(f"[Publisher] Cleanup failed: {e}")
 

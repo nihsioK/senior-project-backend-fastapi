@@ -43,7 +43,7 @@ async def offer(request: Request):
                         if transceiver.kind == "video":
                             supported_codecs = [
                                 codec for codec in RTCRtpSender.getCapabilities("video").codecs
-                                if codec.mimeType in ["video/VP8", "video/H264"]
+                                if codec.mimeType not in ["video/rtx"]
                             ]
                             transceiver.setCodecPreferences(supported_codecs)
 
