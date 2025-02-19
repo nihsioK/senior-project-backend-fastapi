@@ -5,13 +5,20 @@ services:
     container_name: fastapi_app
     restart: always
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://dandevko:dandevko@db/senior_project
     expose:
       - "8080"
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/docs"]
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      timeout: 10s
     ports:
       - "8080:8080"
 
@@ -29,6 +36,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dandevko -d senior_project"]
+      interval: 30s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
 
 volumes:
   postgres_data:

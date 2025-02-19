@@ -175,7 +175,7 @@ async def cleanup(device_id, cloud_server_url):
 
 async def main():
     parser = argparse.ArgumentParser(description="Publisher (Jetson) WebRTC Sender")
-    parser.add_argument("--server", type=str, default="http://localhost:8082", help="Cloud server URL")
+    parser.add_argument("--server", type=str, default="https://senior-backend.xyz", help="Cloud server URL")
     parser.add_argument("--camera", type=int, default=0, help="Camera device index")
     parser.add_argument("--device_id", type=str, required=True, help="Unique ID for this camera device")
     args = parser.parse_args()
