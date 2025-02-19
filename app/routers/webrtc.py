@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Request
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
 from aiortc.contrib.media import MediaRelay
 from app.dependencies import publishers, subscriber_pcs
+import re
+
 
 ice_servers = [
     RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
@@ -12,6 +14,12 @@ router = APIRouter()
 
 relay = MediaRelay()
 
+def remove_rtx(sdp: str) -> str:
+    # Remove RTX-specific fmtp and rtcp-fb lines from the SDP
+    sdp = re.sub(r'a=fmtp:\d+ apt=\d+\r\n', '', sdp)
+    sdp = re.sub(r'a=rtcp-fb:\d+ nack\r\n', '', sdp)
+    return sdp
+
 @router.post("/offer")
 async def offer(request: Request):
     try:
@@ -20,6 +28,8 @@ async def offer(request: Request):
         device_id = params.get("device_id")
         sdp = params.get("sdp")
         type_ = params.get("type")
+
+        sdp = remove_rtx(sdp)
 
         if role == "publisher":
             if not device_id:
