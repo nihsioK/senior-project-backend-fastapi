@@ -4,7 +4,7 @@ import torch
 import joblib
 
 # Load trained Transformer model
-checkpoint = joblib.load('gesture_transformer.pkl')
+checkpoint = joblib.load('app/hgr/gesture_transformer.pkl')
 model_state_dict = checkpoint['model_state_dict']
 label_encoder = checkpoint['label_encoder']
 
