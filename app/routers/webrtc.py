@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Request
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer, MediaStreamTrack
 from aiortc.contrib.media import MediaRelay
 from app.dependencies import publishers, subscriber_pcs
 import re
-
+from app.hgr.recognize import recognize_gesture
 
 ice_servers = [
     RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
@@ -13,6 +13,27 @@ ice_servers = [
 router = APIRouter()
 
 relay = MediaRelay()
+
+class VideoProcessor(MediaStreamTrack):
+    """
+    Custom video processing track that extracts frames and detects gestures.
+    """
+    kind = "video"
+
+    def __init__(self, track):
+        super().__init__()
+        self.track = track
+
+    async def recv(self):
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
+
+        # Recognize gesture
+        gesture = recognize_gesture(img)
+        if gesture:
+            print(f"Detected Gesture: {gesture}")  # You can send this data to a frontend if needed
+
+        return frame  # Return unmodified frame for WebRTC streaming
 
 def remove_rtx(sdp: str) -> str:
     # Remove RTX-specific fmtp and rtcp-fb lines from the SDP
@@ -48,7 +69,7 @@ async def offer(request: Request):
             async def on_track(track):
                 if track.kind == "video":
                     print(f"[Cloud Server] Publisher '{device_id}' video track received!")
-                    publishers[device_id]["track"] = track
+                    publishers[device_id]["track"] = VideoProcessor(track)
 
             @pc.on("icecandidate")
             def on_ice_candidate(candidate):
