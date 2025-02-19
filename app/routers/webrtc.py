@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer, RTCRtpSender
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
 from aiortc.contrib.media import MediaRelay
 from app.dependencies import publishers, subscriber_pcs
 
@@ -37,15 +37,8 @@ async def offer(request: Request):
             @pc.on("track")
             async def on_track(track):
                 if track.kind == "video":
-                    print("Received video track")
-
-                    for transceiver in pc.getTransceivers():
-                        if transceiver.kind == "video":
-                            supported_codecs = [
-                                codec for codec in RTCRtpSender.getCapabilities("video").codecs
-                                if codec.mimeType not in ["video/rtx"]
-                            ]
-                            transceiver.setCodecPreferences(supported_codecs)
+                    print(f"[Cloud Server] Publisher '{device_id}' video track received!")
+                    publishers[device_id]["track"] = track
 
             @pc.on("icecandidate")
             def on_ice_candidate(candidate):
