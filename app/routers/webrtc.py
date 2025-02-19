@@ -1,9 +1,12 @@
 from fastapi import APIRouter, HTTPException, Request
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer, MediaStreamTrack
 from aiortc.contrib.media import MediaRelay
-from app.dependencies import publishers, subscriber_pcs
+import asyncio
 import re
-from app.hgr.recognize import recognize_gesture
+import cv2
+import numpy as np
+from app.dependencies import publishers, subscriber_pcs
+from app.hgr.recognize import recognize_gesture_async  # New async function
 
 ice_servers = [
     RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
@@ -11,32 +14,49 @@ ice_servers = [
 ]
 
 router = APIRouter()
-
 relay = MediaRelay()
 
 class VideoProcessor(MediaStreamTrack):
     """
-    Custom video processing track that extracts frames and detects gestures.
+    Custom video processing track that extracts frames and detects gestures asynchronously.
     """
     kind = "video"
 
     def __init__(self, track):
         super().__init__()
         self.track = track
+        self.queue = asyncio.Queue()  # Queue for processing frames
+        self.processing_task = asyncio.create_task(self.process_frames())
 
     async def recv(self):
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
 
-        # Recognize gesture
-        gesture = recognize_gesture(img)
-        if gesture:
-            print(f"Detected Gesture: {gesture}")  # You can send this data to a frontend if needed
+        # Add frame to processing queue (Non-blocking)
+        await self.queue.put(img)
 
-        return frame  # Return unmodified frame for WebRTC streaming
+        return frame  # Return original frame for WebRTC streaming
+
+    async def process_frames(self):
+        """
+        Background task for processing video frames asynchronously.
+        """
+        while True:
+            frame = await self.queue.get()
+            if frame is None:
+                break  # Stop processing if None is received
+
+            asyncio.create_task(self.detect_gesture(frame))  # Run gesture recognition in background
+
+    async def detect_gesture(self, frame):
+        """
+        Asynchronous function for detecting gestures.
+        """
+        gesture = await recognize_gesture_async(frame)  # Optimized async function
+        if gesture:
+            print(f"Detected Gesture: {gesture}")  # You can send this data to a frontend
 
 def remove_rtx(sdp: str) -> str:
-    # Remove RTX-specific fmtp and rtcp-fb lines from the SDP
     sdp = re.sub(r'a=fmtp:\d+ apt=\d+\r\n', '', sdp)
     sdp = re.sub(r'a=rtcp-fb:\d+ nack\r\n', '', sdp)
     return sdp
@@ -59,24 +79,11 @@ async def offer(request: Request):
             pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=ice_servers))
             publishers[device_id] = {"pc": pc, "track": None, "streaming": False}
 
-            @pc.on("iceconnectionstatechange")
-            async def on_ice_state_change():
-                print(f"[Cloud Server] Publisher '{device_id}' ICE state:", pc.iceConnectionState)
-                if pc.iceConnectionState in ["failed", "disconnected"]:
-                    print(f"[Cloud Server] Publisher '{device_id}' connection failed.")
-
             @pc.on("track")
             async def on_track(track):
                 if track.kind == "video":
                     print(f"[Cloud Server] Publisher '{device_id}' video track received!")
-                    publishers[device_id]["track"] = VideoProcessor(track)
-
-            @pc.on("icecandidate")
-            def on_ice_candidate(candidate):
-                if candidate:
-                    print(f"[Cloud Server] New ICE Candidate: {candidate}")
-                else:
-                    print("[Cloud Server] ICE Candidate gathering finished.")
+                    publishers[device_id]["track"] = VideoProcessor(track)  # Use optimized VideoProcessor
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
@@ -91,12 +98,6 @@ async def offer(request: Request):
             pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=ice_servers))
             local_video = relay.subscribe(publishers[device_id]["track"])
             pc.addTrack(local_video)
-
-            @pc.on("iceconnectionstatechange")
-            async def on_ice_state_change():
-                print(f"[Cloud Server] Subscriber (device {device_id}) ICE state:", pc.iceConnectionState)
-                if pc.iceConnectionState in ["failed", "disconnected"]:
-                    print(f"[Cloud Server] Subscriber connection failed for device {device_id}")
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
