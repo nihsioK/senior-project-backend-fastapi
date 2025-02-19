@@ -35,6 +35,11 @@ app.include_router(webrtc.router)
 
 app.include_router(notification_router.router)
 
+@app.post("/publish/")
+def publish_message(key: str, value: str):
+    send_message(key, value)
+    return {"message": "Published successfully!"}
+
 @app.get("/")
 async def index():
     with open("app/static/index.html") as f:

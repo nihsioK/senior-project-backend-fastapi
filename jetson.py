@@ -13,7 +13,7 @@ ice_servers = [
 
 
 class VideoCaptureTrack(VideoStreamTrack):
-    def __init__(self, device=0, fps=30):
+    def __init__(self, device=0, fps=60):
         super().__init__()
         self.cap = cv2.VideoCapture(device)
 
