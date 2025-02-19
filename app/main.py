@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.dependencies import on_startup, on_shutdown
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from app.kafka.producer import send_message
 
 Base.metadata.create_all(bind=engine)
 
