@@ -1,13 +1,15 @@
 from fastapi import APIRouter, HTTPException, Request
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer, MediaStreamTrack
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
 from aiortc.contrib.media import MediaRelay
 import asyncio
 import re
-import cv2
-import numpy as np
 from app.dependencies import publishers, subscriber_pcs
-from app.hgr.recognize import recognize_gesture_async  # New async function
+from app.hgr.recognize import recognize_gesture_async  # Async gesture recognition function
+from app.services.recognition_service import RecognitionService
+from app.dependencies import get_db
+from app.schemas.recognition_schemas import RecognitionCreate
 
+# ICE Server configuration
 ice_servers = [
     RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
     RTCIceServer(urls="turns:senior-backend.xyz:5349", username="testuser", credential="supersecretpassword")
@@ -16,53 +18,61 @@ ice_servers = [
 router = APIRouter()
 relay = MediaRelay()
 
-class VideoProcessor(MediaStreamTrack):
+# Global queue for processing frames asynchronously
+frame_queue = asyncio.Queue()
+
+async def frame_processing_worker():
     """
-    Custom video processing track that extracts frames and detects gestures asynchronously.
+    Background worker that processes frames from the queue.
+    This runs separately and does NOT interfere with WebRTC streaming.
     """
-    kind = "video"
+    db = get_db()
+    recognition_service = RecognitionService(db)
+    while True:
+        device_id, frame = await frame_queue.get()
+        if frame is None:
+            break  # Stop processing
 
-    def __init__(self, track):
-        super().__init__()
-        self.track = track
-        self.queue = asyncio.Queue()  # Queue for processing frames
-        self.processing_task = asyncio.create_task(self.process_frames())
-
-    async def recv(self):
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
-
-        # Add frame to processing queue (Non-blocking)
-        await self.queue.put(img)
-
-        return frame  # Return original frame for WebRTC streaming
-
-    async def process_frames(self):
-        """
-        Background task for processing video frames asynchronously.
-        """
-        while True:
-            frame = await self.queue.get()
-            if frame is None:
-                break  # Stop processing if None is received
-
-            asyncio.create_task(self.detect_gesture(frame))  # Run gesture recognition in background
-
-    async def detect_gesture(self, frame):
-        """
-        Asynchronous function for detecting gestures.
-        """
-        gesture = await recognize_gesture_async(frame)  # Optimized async function
+        # Run gesture recognition asynchronously
+        gesture = await recognize_gesture_async(frame)
         if gesture:
-            print(f"Detected Gesture: {gesture}")  # You can send this data to a frontend
+            print(f"[Gesture Recognition] Device '{device_id}' detected gesture: {gesture}")
+            recognition = RecognitionCreate(
+                camera_id=device_id,
+                gesture=gesture,
+            )
+            recognition_service.create_recognition(recognition)
+
+
+async def extract_frames(device_id, track):
+    """
+    Extracts frames from the WebRTC track and queues them for processing.
+    Runs separately from the WebRTC pipeline.
+    """
+    while True:
+        try:
+            frame = await track.recv()
+            img = frame.to_ndarray(format="bgr24")
+
+            # Add the frame to the global processing queue
+            await frame_queue.put((device_id, img))
+        except Exception as e:
+            print(f"[Frame Extraction] Error processing video from '{device_id}':", e)
+            break  # Stop processing if track is closed
 
 def remove_rtx(sdp: str) -> str:
+    """
+    Cleans up the SDP to remove unwanted RTX-related attributes.
+    """
     sdp = re.sub(r'a=fmtp:\d+ apt=\d+\r\n', '', sdp)
     sdp = re.sub(r'a=rtcp-fb:\d+ nack\r\n', '', sdp)
     return sdp
 
 @router.post("/offer")
 async def offer(request: Request):
+    """
+    Handles WebRTC offer, assigns a track for the publisher, and sets up the connection.
+    """
     try:
         params = await request.json()
         role = params.get("role")
@@ -83,7 +93,8 @@ async def offer(request: Request):
             async def on_track(track):
                 if track.kind == "video":
                     print(f"[Cloud Server] Publisher '{device_id}' video track received!")
-                    publishers[device_id]["track"] = VideoProcessor(track)  # Use optimized VideoProcessor
+                    publishers[device_id]["track"] = track  # Store the original track
+                    asyncio.create_task(extract_frames(device_id, track))  # Start async extraction
 
             await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type=type_))
             answer = await pc.createAnswer()
@@ -114,16 +125,22 @@ async def offer(request: Request):
 
 @router.post("/set_stream")
 async def set_stream(request: Request):
+    """
+    Enables or disables streaming for a publisher.
+    """
     try:
         params = await request.json()
         device_id = params.get("device_id")
         stream_flag = params.get("stream")
+
         if not device_id:
             raise HTTPException(status_code=400, detail="Missing device_id")
         if device_id not in publishers:
             raise HTTPException(status_code=404, detail=f"Device {device_id} not found")
+
         publishers[device_id]["streaming"] = bool(stream_flag)
         print(f"[Cloud Server] Device '{device_id}' streaming set to {stream_flag}")
+
         return {"device_id": device_id, "streaming": publishers[device_id]["streaming"]}
     except Exception as e:
         print("[Cloud Server] Exception in /set_stream:", e)

@@ -19,6 +19,7 @@ dependencies = [
     "python-jose>=3.3.0",
     "python-multipart>=0.0.20",
     "requests>=2.32.3",
+    "scikit-learn>=1.6.1",
     "sqlalchemy>=2.0.37",
     "torch>=2.6.0",
     "torchvision>=0.21.0",

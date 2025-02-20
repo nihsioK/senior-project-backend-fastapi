@@ -1,11 +1,10 @@
 from fastapi import FastAPI
 from app.database import engine, Base
-from app.routers import user_router, camera_router, webrtc, notification_router
+from app.routers import user_router, camera_router, webrtc, notification_router, recognition_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.dependencies import on_startup, on_shutdown
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-from app.kafka.producer import send_message
 
 Base.metadata.create_all(bind=engine)
 
@@ -36,10 +35,7 @@ app.include_router(webrtc.router)
 
 app.include_router(notification_router.router)
 
-@app.post("/publish/")
-def publish_message(key: str, value: str):
-    send_message(key, value)
-    return {"message": "Published successfully!"}
+app.include_router(recognition_router.router)
 
 @app.get("/")
 async def index():

@@ -1,7 +1,7 @@
 from app.database import SessionLocal
 import socket
-from fastapi import FastAPI
-from aiortc import RTCPeerConnection
+import asyncio
+
 
 def get_db():
     db = SessionLocal()
@@ -21,6 +21,12 @@ async def on_startup():
         print(f"Server is running on IP: {local_ip}")
     except Exception as e:
         print("Could not obtain local IP:", e)
+
+    try:
+        from app.routers.webrtc import frame_processing_worker
+        asyncio.create_task(frame_processing_worker())
+    except Exception as e:
+        print("Error starting frame processing worker:", e)
 
 async def on_shutdown():
     """Shutdown event handler to clean up RTC connections."""
