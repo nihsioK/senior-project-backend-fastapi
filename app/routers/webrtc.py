@@ -26,8 +26,6 @@ async def frame_processing_worker():
     Background worker that processes frames from the queue.
     This runs separately and does NOT interfere with WebRTC streaming.
     """
-    db = get_db()
-    recognition_service = RecognitionService(db)
     while True:
         device_id, frame = await frame_queue.get()
         if frame is None:
@@ -38,13 +36,21 @@ async def frame_processing_worker():
         if gesture:
             print(f"[Gesture Recognition] Device '{device_id}' detected gesture: {gesture}")
 
-            with get_db() as db:
+            # Get a valid database session
+            db = next(get_db())  # Properly retrieve a session from generator
+
+            try:
                 recognition_service = RecognitionService(db)
                 recognition = RecognitionCreate(
                     camera_id=device_id,
                     gesture=gesture,
                 )
                 recognition_service.create_recognition(recognition)
+            except Exception as e:
+                print(f"[DB Error] Failed to save recognition: {e}")
+            finally:
+                db.close()  # Always close the session to prevent connection leaks
+
 
 
 async def extract_frames(device_id, track):
