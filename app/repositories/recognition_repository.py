@@ -19,13 +19,16 @@ class RecognitionRepository:
 
         if recognition:
             recognition.gesture = recognition_create.gesture
-            return recognition
+            self.db.commit()
+            self.db.refresh(recognition)
         else:
+            # Create a new recognition record
             recognition = HandGestureRecognition(
                 camera_id=recognition_create.camera_id,
                 gesture=recognition_create.gesture,
             )
-        self.db.add(recognition)
-        self.db.commit()
-        self.db.refresh(recognition)
+            self.db.add(recognition)
+            self.db.commit()
+            self.db.refresh(recognition)
+
         return recognition
