@@ -37,11 +37,14 @@ async def frame_processing_worker():
         gesture = await recognize_gesture_async(frame)
         if gesture:
             print(f"[Gesture Recognition] Device '{device_id}' detected gesture: {gesture}")
-            recognition = RecognitionCreate(
-                camera_id=device_id,
-                gesture=gesture,
-            )
-            recognition_service.create_recognition(recognition)
+
+            with get_db() as db:
+                recognition_service = RecognitionService(db)
+                recognition = RecognitionCreate(
+                    camera_id=device_id,
+                    gesture=gesture,
+                )
+                recognition_service.create_recognition(recognition)
 
 
 async def extract_frames(device_id, track):

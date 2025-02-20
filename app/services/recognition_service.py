@@ -3,7 +3,6 @@ from typing import Optional, Type
 from app.repositories.recognition_repository import RecognitionRepository
 from app.schemas.recognition_schemas import RecognitionCreate, RecognitionOut
 from app.models.recognition_models import HandGestureRecognition
-from app.dependencies import publishers
 
 class RecognitionService:
     def __init__(self, db: Session):
