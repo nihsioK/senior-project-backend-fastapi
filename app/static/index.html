@@ -82,7 +82,7 @@
           body: JSON.stringify({ camera_id: device_id, stream: true }),
         });
         await startStream();
-        setInterval(() => fetchGesture(device_id), 5000); // Fetch gesture every 5 seconds
+        setInterval(() => fetchGesture(device_id), 1000); // Fetch gesture every 5 seconds
       }
 
       async function stopViewing() {
