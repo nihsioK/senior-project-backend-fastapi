@@ -24,20 +24,31 @@ frame_queue = asyncio.Queue()
 async def frame_processing_worker():
     """
     Background worker that processes frames from the queue.
-    This runs separately and does NOT interfere with WebRTC streaming.
+    Tracks time taken for the first detected gesture.
     """
+    first_gesture_time = None  # Stores time when first gesture is processed
+
     while True:
         device_id, frame = await frame_queue.get()
         if frame is None:
             break  # Stop processing
 
         # Run gesture recognition asynchronously
+        start_processing_time = asyncio.get_event_loop().time()
         gesture = await recognize_gesture_async(frame)
-        if gesture:
-            print(f"[Gesture Recognition] Device '{device_id}' detected gesture: {gesture}")
+        end_processing_time = asyncio.get_event_loop().time()
+        processing_time = end_processing_time - start_processing_time
 
-            # Get a valid database session
-            db = next(get_db())  # Properly retrieve a session from generator
+        if gesture:
+            print(f"[Gesture Recognition] Device '{device_id}' detected gesture: {gesture} (Processing Time: {processing_time:.4f} sec)")
+
+            # Store the first gesture processing time
+            if first_gesture_time is None:
+                first_gesture_time = end_processing_time
+                print(f"[Gesture Recognition] First gesture processing time recorded: {processing_time:.4f} sec")
+
+            # Save gesture recognition result in the database
+            db = next(get_db())
 
             try:
                 recognition_service = RecognitionService(db)
@@ -49,25 +60,44 @@ async def frame_processing_worker():
             except Exception as e:
                 print(f"[DB Error] Failed to save recognition: {e}")
             finally:
-                db.close()  # Always close the session to prevent connection leaks
+                db.close()  # Always close the session
 
 
 
 async def extract_frames(device_id, track):
     """
     Extracts frames from the WebRTC track and queues them for processing.
-    Runs separately from the WebRTC pipeline.
+    Tracks the time taken to receive 30 frames.
     """
+    frame_counter = 0
+    start_time = None  # Start time for 30 frames
+
     while True:
         try:
             frame = await track.recv()
             img = frame.to_ndarray(format="bgr24")
 
-            # Add the frame to the global processing queue
+            # Start the timer when the first frame arrives
+            if frame_counter == 0:
+                start_time = asyncio.get_event_loop().time()
+                print(f"[Frame Extraction] Started measuring time for 30 frames (Device {device_id})")
+
+            # Increase frame counter
+            frame_counter += 1
+
+            # Add the frame to the processing queue
             await frame_queue.put((device_id, img))
+
+            # When 30 frames are received, measure time taken
+            if frame_counter == 30:
+                end_time = asyncio.get_event_loop().time()
+                total_time = end_time - start_time
+                print(f"[Frame Extraction] Time taken to receive 30 frames for device {device_id}: {total_time:.4f} seconds")
+
         except Exception as e:
             print(f"[Frame Extraction] Error processing video from '{device_id}':", e)
             break  # Stop processing if track is closed
+
 
 def remove_rtx(sdp: str) -> str:
     """

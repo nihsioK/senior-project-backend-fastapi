@@ -5,6 +5,7 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, R
 import cv2
 from av import VideoFrame
 from fractions import Fraction
+import time
 
 ice_servers = [
     RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
@@ -28,6 +29,9 @@ class VideoCaptureTrack(VideoStreamTrack):
         self.next_pts = 0
         self.running = False  # Do not capture frames until commanded.
 
+        self.frame_counter = 0
+        self.start_time = None
+
     async def recv(self):
         while not self.running:
             await asyncio.sleep(0.1)
@@ -42,6 +46,20 @@ class VideoCaptureTrack(VideoStreamTrack):
         video_frame.pts = self.next_pts
         video_frame.time_base = self.time_base
         self.next_pts += 1
+
+
+        # Time measurement logic
+        self.frame_counter += 1
+        if self.frame_counter == 1:
+            self.start_time = time.time()  # Start timer when first frame is sent
+            print("[Publisher] Started measuring time...")
+
+        elif self.frame_counter == 30:
+            end_time = time.time()  # Capture end time after 15 frames
+            total_time = end_time - self.start_time
+            print(f"[Publisher] Time taken to send 30 frames: {total_time:.4f} seconds")
+
+
         return video_frame
 
     async def start_stream(self):
