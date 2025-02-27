@@ -26,7 +26,7 @@ async def frame_processing_worker():
     Background worker that processes frames from the queue.
     Tracks time taken for the first detected gesture.
     """
-    first_gesture_time = None  # Stores time when first gesture is processed
+    # first_gesture_time = None  # Stores time when first gesture is processed
 
     while True:
         device_id, frame = await frame_queue.get()
@@ -35,32 +35,32 @@ async def frame_processing_worker():
 
         # Run gesture recognition asynchronously
         start_processing_time = asyncio.get_event_loop().time()
-        gesture = await recognize_gesture_async(frame)
+        # gesture = await recognize_gesture_async(frame)
         end_processing_time = asyncio.get_event_loop().time()
         processing_time = end_processing_time - start_processing_time
 
-        if gesture:
-            print(f"[Gesture Recognition] Device '{device_id}' detected gesture: {gesture} (Processing Time: {processing_time:.4f} sec)")
-
-            # Store the first gesture processing time
-            if first_gesture_time is None:
-                first_gesture_time = end_processing_time
-                print(f"[Gesture Recognition] First gesture processing time recorded: {processing_time:.4f} sec")
-
-            # Save gesture recognition result in the database
-            db = next(get_db())
-
-            try:
-                recognition_service = RecognitionService(db)
-                recognition = RecognitionCreate(
-                    camera_id=device_id,
-                    gesture=gesture,
-                )
-                recognition_service.create_recognition(recognition)
-            except Exception as e:
-                print(f"[DB Error] Failed to save recognition: {e}")
-            finally:
-                db.close()  # Always close the session
+        # if gesture:
+        #     print(f"[Gesture Recognition] Device '{device_id}' detected gesture: {gesture} (Processing Time: {processing_time:.4f} sec)")
+        #
+        #     # Store the first gesture processing time
+        #     if first_gesture_time is None:
+        #         first_gesture_time = end_processing_time
+        #         print(f"[Gesture Recognition] First gesture processing time recorded: {processing_time:.4f} sec")
+        #
+        #     # Save gesture recognition result in the database
+        #     db = next(get_db())
+        #
+        #     try:
+        #         recognition_service = RecognitionService(db)
+        #         recognition = RecognitionCreate(
+        #             camera_id=device_id,
+        #             gesture=gesture,
+        #         )
+        #         recognition_service.create_recognition(recognition)
+        #     except Exception as e:
+        #         print(f"[DB Error] Failed to save recognition: {e}")
+        #     finally:
+        #         db.close()  # Always close the session
 
 
 
