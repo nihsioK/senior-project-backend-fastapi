@@ -16,6 +16,28 @@ ice_servers = [
 
 URL = "https://senior-backend.xyz"
 
+async def process_gesture(frame):
+    """
+    Recognizes gesture asynchronously and sends it to the server.
+    """
+    gesture = await recognize_gesture_async(frame)
+
+    if gesture:
+        data = {
+            "camera_id": "camera1",  # Replace with actual camera ID
+            "gesture": gesture
+        }
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(f"{URL}/recognitions/create", json=data) as response:
+                    if response.status in [200, 201]:
+                        print(f"[Publisher] Gesture '{gesture}' successfully sent to server.")
+                    else:
+                        print(f"[Publisher] Failed to send gesture '{gesture}' (Status: {response.status})")
+            except Exception as e:
+                print(f"[Publisher] Error sending gesture data: {e}")
+
 class VideoCaptureTrack(VideoStreamTrack):
     def __init__(self, device=0, fps=60):
         super().__init__()
@@ -34,7 +56,6 @@ class VideoCaptureTrack(VideoStreamTrack):
 
         self.frame_counter = 0
         self.start_time = None
-        self.gesture_time = None  # Store first gesture processing time
 
     async def recv(self):
         while not self.running:
@@ -59,47 +80,13 @@ class VideoCaptureTrack(VideoStreamTrack):
             print("[Publisher] Started measuring time...")
 
         elif self.frame_counter == 30:
-            end_time = time.time()  # Capture end time after 30 frames
+            end_time = time.time()  # Capture end time after 15 frames
             total_time = end_time - self.start_time
             print(f"[Publisher] Time taken to send 30 frames: {total_time:.4f} seconds")
 
-            # Start async gesture recognition
-        asyncio.create_task(self.process_gesture(frame))
+        asyncio.create_task(process_gesture(frame))
         return video_frame
 
-    async def process_gesture(self, frame):
-        """
-        Process gesture asynchronously and measure time taken for the first detected gesture.
-        """
-        start_gesture_time = time.time()
-        gesture = await recognize_gesture_async(frame)
-        end_gesture_time = time.time()
-
-        if gesture:
-            processing_time = end_gesture_time - start_gesture_time
-            print(f"[Publisher] Detected Gesture: {gesture} (Processing Time: {processing_time:.4f} sec)")
-
-            # Log only the first gesture time
-            if self.gesture_time is None:
-                self.gesture_time = processing_time
-                print(f"[Publisher] First gesture processed in: {processing_time:.4f} sec")
-
-            # Prepare JSON data
-            data = {
-                "camera_id": self.cap,  # Replace with actual camera ID if available
-                "gesture": gesture
-            }
-
-            # Send data to backend
-            async with aiohttp.ClientSession() as session:
-                try:
-                    async with session.post(f"{URL}/recognitions/create", json=data) as response:
-                        if response.status in [200, 201]:
-                            print(f"[Publisher] Gesture '{gesture}' successfully sent to server.")
-                        else:
-                            print(f"[Publisher] Failed to send gesture '{gesture}' (Status: {response.status})")
-                except Exception as e:
-                    print(f"[Publisher] Error sending gesture data: {e}")
 
     async def start_stream(self):
         if not self.running:
