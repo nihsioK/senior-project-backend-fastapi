@@ -43,13 +43,13 @@ async def alert_listener():
 # Start the alert listener once when FastAPI starts
 asyncio.create_task(alert_listener())
 
-@router.websocket("/ws/alerts")
+@router.websocket("/ws/alerts/")
 async def websocket_alert_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for clients to receive alert notifications.
     """
-    await websocket.accept()
-    client_id = str(id(websocket))  # Unique identifier for each connection
+    await websocket.accept()  # ✅ Explicitly accept the WebSocket
+    client_id = str(id(websocket))
     alert_connections[client_id] = websocket
     print(f"[WebSocket] Alert client connected: {client_id}")
 
@@ -59,3 +59,4 @@ async def websocket_alert_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         print(f"[WebSocket] Alert client disconnected: {client_id}")
         alert_connections.pop(client_id, None)
+
