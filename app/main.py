@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.database import engine, Base
-from app.routers import user_router, camera_router, webrtc, notification_router, recognition_router, websockets
+from app.routers import user_router, camera_router, webrtc, notification_router, recognition_router, websockets, notifications_websockets
 from fastapi.middleware.cors import CORSMiddleware
 from app.dependencies import on_startup, on_shutdown
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +34,7 @@ app.include_router(camera_router.router)
 app.include_router(webrtc.router)
 
 app.include_router(websockets.router)
+app.include_router(notifications_websockets.router)
 
 app.include_router(notification_router.router)
 
