@@ -29,7 +29,7 @@ def recognition_worker():
     """
     while True:
         messages = redis_client.xread({"video_frames": "$"}, count=1, block=500)  # Blocking read
-
+        print("Received {} frames".format(len(messages)))
         for stream, message_list in messages:
             for message_id, data in message_list:
                 device_id = data[b'device_id'].decode("utf-8")
@@ -44,6 +44,7 @@ def recognition_worker():
                 # If we have 10 frames, process and send result
                 if len(frame_queues[device_id]) == 10:
                     action_result = process_frames(list(frame_queues[device_id]))  # Process all 10 frames
+                    print(f"{device_id}: {action_result}")
                     frame_queues[device_id].clear()  # Clear queue after processing
 
                     # Send recognition result back via Redis Pub/Sub
@@ -51,4 +52,5 @@ def recognition_worker():
 
 
 if __name__ == "__main__":
+    print("Starting recognition worker")
     recognition_worker()

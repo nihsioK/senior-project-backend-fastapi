@@ -58,21 +58,6 @@
         });
       }
 
-      async function fetchGesture(device_id) {
-        try {
-          const response = await fetch(`/recognitions/get_by_id/${device_id}`);
-          const data = await response.json();
-          if (data && data.gesture) {
-            document.getElementById("gesture").textContent = `Gesture: ${data.gesture}`;
-          } else {
-            document.getElementById("gesture").textContent = "Gesture: No data";
-          }
-        } catch (error) {
-          console.error("Error fetching gesture:", error);
-          document.getElementById("gesture").textContent = "Gesture: Error";
-        }
-      }
-
       async function selectDevice(device_id) {
         console.log("Selected device:", device_id);
         currentDevice = device_id;
@@ -82,7 +67,6 @@
           body: JSON.stringify({ camera_id: device_id, stream: true }),
         });
         await startStream();
-        setInterval(() => fetchGesture(device_id), 1000); // Fetch gesture every 5 seconds
       }
 
       async function stopViewing() {
