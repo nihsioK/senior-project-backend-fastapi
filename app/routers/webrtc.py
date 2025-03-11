@@ -4,96 +4,53 @@ from aiortc.contrib.media import MediaRelay
 import asyncio
 import re
 from app.dependencies import publishers, subscriber_pcs
-from app.hgr.recognize import recognize_gesture_async  # Async gesture recognition function
-from app.services.recognition_service import RecognitionService
-from app.dependencies import get_db
-from app.schemas.recognition_schemas import RecognitionCreate
+import redis
+import cv2
+import base64
 
-# ICE Server configuration
 ice_servers = [
-    RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
-    RTCIceServer(urls="turns:senior-backend.xyz:5349", username="testuser", credential="supersecretpassword")
+    RTCIceServer(urls="turn:46.8.31.7:3478", username="testuser", credential="supersecretpassword"),
+    RTCIceServer(urls="turns:46.8.31.7:5349", username="testuser", credential="supersecretpassword")
 ]
 
 router = APIRouter()
 relay = MediaRelay()
 
-# Global queue for processing frames asynchronously
 frame_queue = asyncio.Queue()
+
+redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
 
 async def frame_processing_worker():
     """
     Background worker that processes frames from the queue.
     Tracks time taken for the first detected gesture.
     """
-    # first_gesture_time = None  # Stores time when first gesture is processed
 
     while True:
         device_id, frame = await frame_queue.get()
         if frame is None:
-            break  # Stop processing
-
-        # Run gesture recognition asynchronously
-        start_processing_time = asyncio.get_event_loop().time()
-        # gesture = await recognize_gesture_async(frame)
-        end_processing_time = asyncio.get_event_loop().time()
-        processing_time = end_processing_time - start_processing_time
-
-        # if gesture:
-        #     print(f"[Gesture Recognition] Device '{device_id}' detected gesture: {gesture} (Processing Time: {processing_time:.4f} sec)")
-        #
-        #     # Store the first gesture processing time
-        #     if first_gesture_time is None:
-        #         first_gesture_time = end_processing_time
-        #         print(f"[Gesture Recognition] First gesture processing time recorded: {processing_time:.4f} sec")
-        #
-        #     # Save gesture recognition result in the database
-        #     db = next(get_db())
-        #
-        #     try:
-        #         recognition_service = RecognitionService(db)
-        #         recognition = RecognitionCreate(
-        #             camera_id=device_id,
-        #             gesture=gesture,
-        #         )
-        #         recognition_service.create_recognition(recognition)
-        #     except Exception as e:
-        #         print(f"[DB Error] Failed to save recognition: {e}")
-        #     finally:
-        #         db.close()  # Always close the session
-
-
+            break
 
 async def extract_frames(device_id, track):
     """
     Extracts frames from the WebRTC track and queues them for processing.
     Tracks the time taken to receive 30 frames.
     """
-    frame_counter = 0
-    start_time = None  # Start time for 30 frames
-
+    counter = 0
     while True:
         try:
+
             frame = await track.recv()
             img = frame.to_ndarray(format="bgr24")
 
-            # Start the timer when the first frame arrives
-            if frame_counter == 0:
-                start_time = asyncio.get_event_loop().time()
-                print(f"[Frame Extraction] Started measuring time for 30 frames (Device {device_id})")
+            _, buffer = cv2.imencode('.jpg', img)
+            encoded_frame = base64.b64encode(buffer).decode("utf-8")
 
-            # Increase frame counter
-            frame_counter += 1
-
-            # Add the frame to the processing queue
+            redis_client.xadd("video_frames", {"device_id": device_id, "frame": encoded_frame})
+            if counter % 10 == 0:
+                print("Processed {} frames".format(counter))
+            counter += 1
             await frame_queue.put((device_id, img))
-
-            # When 30 frames are received, measure time taken
-            if frame_counter == 30:
-                end_time = asyncio.get_event_loop().time()
-                total_time = end_time - start_time
-                print(f"[Frame Extraction] Time taken to receive 30 frames for device {device_id}: {total_time:.4f} seconds")
-
         except Exception as e:
             print(f"[Frame Extraction] Error processing video from '{device_id}':", e)
             break  # Stop processing if track is closed

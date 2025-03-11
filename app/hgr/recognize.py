@@ -4,6 +4,10 @@ import torch
 import joblib
 import asyncio
 
+# Check for GPU availability
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
 # Load trained Transformer model
 checkpoint = joblib.load('app/hgr/gesture_transformer.pkl')
 model_state_dict = checkpoint['model_state_dict']
@@ -31,10 +35,12 @@ if input_dim % num_heads != 0:
 
 model = GestureTransformer(input_dim=input_dim, num_classes=num_classes, num_heads=num_heads)
 model.load_state_dict(model_state_dict)
+model.to(device)  # Move model to GPU
 model.eval()
 
 # Convert model to TorchScript for faster inference
 scripted_model = torch.jit.script(model)
+scripted_model.to(device)  # Ensure the scripted model is also on GPU
 
 # Initialize MediaPipe Hands
 mp_hands = mp.solutions.hands
@@ -51,8 +57,9 @@ async def recognize_gesture_async(frame):
         for hand_landmarks in results.multi_hand_landmarks:
             landmark_data = [coord for landmark in hand_landmarks.landmark for coord in (landmark.x, landmark.y, landmark.z)]
 
-            # Convert to tensor and predict asynchronously
-            landmark_tensor = torch.tensor(landmark_data, dtype=torch.float32).unsqueeze(0)
+            # Convert to tensor and move to GPU
+            landmark_tensor = torch.tensor(landmark_data, dtype=torch.float32).unsqueeze(0).to(device)
+
             with torch.no_grad():
                 output = scripted_model(landmark_tensor)  # Use scripted model
                 predicted_class = torch.argmax(output, dim=1).item()

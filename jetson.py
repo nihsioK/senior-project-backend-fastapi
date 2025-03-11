@@ -5,38 +5,11 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, R
 import cv2
 from av import VideoFrame
 from fractions import Fraction
-import time
-from app.hgr.recognize import recognize_gesture_async
-import aiohttp
 
 ice_servers = [
-    RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
-    RTCIceServer(urls="turns:senior-backend.xyz:5349", username="testuser", credential="supersecretpassword")
+    RTCIceServer(urls="turn:46.8.31.7:3478", username="testuser", credential="supersecretpassword"),
+    RTCIceServer(urls="turns:46.8.31.7:5349", username="testuser", credential="supersecretpassword")
 ]
-
-URL = "https://senior-backend.xyz"
-
-async def process_gesture(frame):
-    """
-    Recognizes gesture asynchronously and sends it to the server.
-    """
-    gesture = await recognize_gesture_async(frame)
-
-    if gesture:
-        data = {
-            "camera_id": "camera1",  # Replace with actual camera ID
-            "gesture": gesture
-        }
-
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(f"{URL}/recognitions/create", json=data) as response:
-                    if response.status in [200, 201]:
-                        print(f"[Publisher] Gesture '{gesture}' successfully sent to server.")
-                    else:
-                        print(f"[Publisher] Failed to send gesture '{gesture}' (Status: {response.status})")
-            except Exception as e:
-                print(f"[Publisher] Error sending gesture data: {e}")
 
 class VideoCaptureTrack(VideoStreamTrack):
     def __init__(self, device=0, fps=60):
@@ -72,21 +45,7 @@ class VideoCaptureTrack(VideoStreamTrack):
         video_frame.time_base = self.time_base
         self.next_pts += 1
 
-
-        # Time measurement logic
-        self.frame_counter += 1
-        if self.frame_counter == 1:
-            self.start_time = time.time()  # Start timer when first frame is sent
-            print("[Publisher] Started measuring time...")
-
-        elif self.frame_counter == 30:
-            end_time = time.time()  # Capture end time after 15 frames
-            total_time = end_time - self.start_time
-            print(f"[Publisher] Time taken to send 30 frames: {total_time:.4f} seconds")
-
-        asyncio.create_task(process_gesture(frame))
         return video_frame
-
 
     async def start_stream(self):
         if not self.running:
