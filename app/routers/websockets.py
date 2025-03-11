@@ -1,10 +1,11 @@
-import aioredis
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import Dict
-
+import redis
 router = APIRouter()
-redis_client = aioredis.from_url("redis://localhost", decode_responses=True)
+
+redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+
 
 # Store active WebSocket connections
 active_connections: Dict[str, WebSocket] = {}
