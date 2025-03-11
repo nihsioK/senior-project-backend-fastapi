@@ -1,10 +1,10 @@
-import redis
+import aioredis
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import Dict
 
 router = APIRouter()
-redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
+redis_client = aioredis.from_url("redis://localhost", decode_responses=True)
 
 # Store active WebSocket connections
 active_connections: Dict[str, WebSocket] = {}
@@ -12,17 +12,16 @@ active_connections: Dict[str, WebSocket] = {}
 
 async def redis_listener(websocket: WebSocket, device_id: str):
     """
-    Listens to Redis Pub/Sub and sends action results to WebSocket clients.
+    Asynchronously listens to Redis Pub/Sub and sends action results to WebSocket clients.
     """
     pubsub = redis_client.pubsub()
-    pubsub.subscribe("action_results")
+    await pubsub.subscribe("action_results")
 
     try:
-        for message in pubsub.listen():
+        async for message in pubsub.listen():
             if message["type"] == "message":
-                action_data = json.loads(message["data"].decode("utf-8"))
+                action_data = json.loads(message["data"])
 
-                # Only send results for the correct device_id
                 if action_data["device_id"] == device_id and device_id in active_connections:
                     await active_connections[device_id].send_json(action_data)
     except Exception as e:
