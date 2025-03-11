@@ -9,8 +9,8 @@ import cv2
 import base64
 
 ice_servers = [
-    RTCIceServer(urls="turn:46.8.31.7:3478", username="testuser", credential="supersecretpassword"),
-    RTCIceServer(urls="turns:46.8.31.7:5349", username="testuser", credential="supersecretpassword")
+    RTCIceServer(urls="turn:senior-backend.xyz:3478", username="testuser", credential="supersecretpassword"),
+    RTCIceServer(urls="turns:senior-backend.xyz:5349", username="testuser", credential="supersecretpassword")
 ]
 
 router = APIRouter()
