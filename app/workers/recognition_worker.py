@@ -50,6 +50,13 @@ def recognition_worker():
                     # Send recognition result back via Redis Pub/Sub
                     redis_client.publish("action_results", json.dumps({"device_id": device_id, "action": action_result}))
 
+                    if action_result == "rock":
+                        alert_message = {
+                            "device_id": device_id,
+                            "message": f"On {device_id} detected unusual activity: {action_result}"
+                        }
+                        redis_client.publish("alerts", json.dumps(alert_message))
+
 
 if __name__ == "__main__":
     print("Starting recognition worker")
