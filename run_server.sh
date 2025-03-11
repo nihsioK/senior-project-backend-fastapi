@@ -11,7 +11,7 @@ if [ $? != 0 ]; then
 
     # Start FastAPI server in the first pane
     tmux rename-window -t $SESSION_NAME "FastAPI"
-    tmux send-keys -t $SESSION_NAME "source .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8080" C-m
+    tmux send-keys -t $SESSION_NAME "source .venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8080" C-m
 
     # Split the window and run the recognition worker in the second pane
     tmux split-window -h -t $SESSION_NAME
