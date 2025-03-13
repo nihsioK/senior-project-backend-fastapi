@@ -67,7 +67,7 @@ def recognition_worker(db_session, notification_repository: NotificationReposito
                         }
                         redis_client.publish("alerts", json.dumps(alert_message))
                         notification_repository.create_manual(
-                            notification_type=NotificationType.alert,
+                            notification_type=NotificationType.CRITICAL,
                             message=alert_message["message"],
                             camera_id=alert_message["device_id"],
                         )
