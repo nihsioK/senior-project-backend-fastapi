@@ -15,7 +15,7 @@ if [ $? != 0 ]; then
 
     # Split the window and run the recognition worker in the second pane
     tmux split-window -h -t $SESSION_NAME
-    tmux send-keys -t $SESSION_NAME "source .venv/bin/activate && python app/workers/recognition_worker.py" C-m
+    tmux send-keys -t $SESSION_NAME "source .venv/bin/activate && PYTHONPATH=$(pwd) python -m app.workers.recognition_worker" C-m
 
     # Select the first pane (FastAPI logs) as the default active pane
     tmux select-pane -t $SESSION_NAME:0.0

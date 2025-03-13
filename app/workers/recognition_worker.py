@@ -5,10 +5,9 @@ import numpy as np
 import json
 import random
 from collections import defaultdict, deque
+from app.services.gesture_statistics_service import ActionStatisticService
+from app.dependencies import get_db
 
-# from ..services.gesture_statistics_service import ActionStatisticService
-
-# action_statistics_service = ActionStatisticService()
 
 redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
 
@@ -27,10 +26,11 @@ def process_frames(frames):
     return chosen_action
 
 
-def recognition_worker():
+def recognition_worker(db_session):
     """
     Continuously processes frames from Redis Stream and sends results after accumulating 10 frames.
     """
+
     while True:
         messages = redis_client.xread({"video_frames": "$"}, count=1, block=500)  # Blocking read
         print("Received {} frames".format(len(messages)))
@@ -42,6 +42,8 @@ def recognition_worker():
                 # Decode frame and add it to the queue
                 np_arr = np.frombuffer(base64.b64decode(frame), np.uint8)
                 img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+                ActionStatisticService.process_action(db_session, device_id, action_result)
 
                 frame_queues[device_id].append(img)
 
@@ -62,10 +64,14 @@ def recognition_worker():
                             "message": f"On {device_id} detected unusual activity: {action_result}",
                         }
                         redis_client.publish("alerts", json.dumps(alert_message))
-
-                    # action_statistics_service.process_action(None, device_id, action_result)
+    db_session.close()
 
 
 if __name__ == "__main__":
     print("Starting recognition worker")
-    recognition_worker()
+    db_session = next(get_db())
+
+    try:
+        recognition_worker(db_session)
+    finally:
+        db_session.close()
