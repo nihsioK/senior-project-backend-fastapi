@@ -5,9 +5,10 @@ import numpy as np
 import json
 import random
 from collections import defaultdict, deque
-from app.services.gesture_statistics_service import ActionStatisticService
 
-action_statistics_service = ActionStatisticService()
+# from ..services.gesture_statistics_service import ActionStatisticService
+
+# action_statistics_service = ActionStatisticService()
 
 redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
 
@@ -62,7 +63,7 @@ def recognition_worker():
                         }
                         redis_client.publish("alerts", json.dumps(alert_message))
 
-                    action_statistics_service.process_action(None, device_id, action_result)
+                    # action_statistics_service.process_action(None, device_id, action_result)
 
 
 if __name__ == "__main__":
