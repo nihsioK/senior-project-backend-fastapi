@@ -4,6 +4,7 @@ from app.repositories.notification_repository import NotificationRepository
 from app.schemas.notification_schemas import NotificationCreate
 from app.models.notification_models import Notification, NotificationType, NotificationStatuses
 
+
 class NotificationService:
     def __init__(self, db: Session):
         self.notification_repository = NotificationRepository(db)

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.notification_models import Notification, NotificationType, NotificationStatuses
 from app.schemas.notification_schemas import NotificationCreate
 
+
 class NotificationRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -28,6 +29,17 @@ class NotificationRepository:
         self.db.refresh(notification)
         return notification
 
+    def create_manual(self, notification_type: NotificationType, message: str, camera_id: str) -> Notification:
+        notification = Notification(
+            type=notification_type,
+            message=message,
+            camera_id=camera_id,
+        )
+        self.db.add(notification)
+        self.db.commit()
+        self.db.refresh(notification)
+        return notification
+
     def update(self, notification_id: int, status: NotificationStatuses) -> Notification | None:
         notification = self.get_by_pk(notification_id)
         if not notification:
@@ -42,6 +54,3 @@ class NotificationRepository:
         if not notification:
             return None
         self.db.delete(notification)
-
-
-

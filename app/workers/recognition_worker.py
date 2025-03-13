@@ -6,6 +6,8 @@ import json
 import random
 from collections import defaultdict, deque
 from app.services.gesture_statistics_service import ActionStatisticService
+from app.repositories.notification_repository import NotificationRepository
+from app.models.notification_models import NotificationType
 from app.dependencies import get_db
 
 
@@ -28,7 +30,7 @@ def process_frames(frames):
     return chosen_action
 
 
-def recognition_worker(db_session):
+def recognition_worker(db_session, notification_repository: NotificationRepository):
     """
     Continuously processes frames from Redis Stream and sends results after accumulating 10 frames.
     """
@@ -64,6 +66,11 @@ def recognition_worker(db_session):
                             "message": f"On {device_id} detected unusual activity: {action_result}",
                         }
                         redis_client.publish("alerts", json.dumps(alert_message))
+                        notification_repository.create_manual(
+                            notification_type=NotificationType.alert,
+                            message=alert_message["message"],
+                            camera_id=alert_message["device_id"],
+                        )
 
                     try:
                         action_service.process_action(None, device_id, action_result)
@@ -76,8 +83,8 @@ def recognition_worker(db_session):
 if __name__ == "__main__":
     print("Starting recognition worker")
     db_session = next(get_db())
-
+    notification_repository = NotificationRepository(db_session)
     try:
-        recognition_worker(db_session)
+        recognition_worker(db_session, notification_repository)
     finally:
         db_session.close()
