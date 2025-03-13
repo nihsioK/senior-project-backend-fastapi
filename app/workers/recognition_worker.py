@@ -9,6 +9,8 @@ from app.services.gesture_statistics_service import ActionStatisticService
 from app.dependencies import get_db
 
 
+action_service = ActionStatisticService()
+
 redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
 
 # Store frames per device
@@ -43,7 +45,11 @@ def recognition_worker(db_session):
                 np_arr = np.frombuffer(base64.b64decode(frame), np.uint8)
                 img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-                ActionStatisticService.process_action(db_session, device_id, action_result)
+                try:
+                    action_service.process_action(db_session, device_id, action_result)
+
+                except Exception as e:
+                    print(f"Error processing action: {e}")
 
                 frame_queues[device_id].append(img)
 
