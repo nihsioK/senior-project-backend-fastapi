@@ -7,3 +7,12 @@ engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+def init_db():
+    from app.models import camera_models, gesture_statistics, notification_models, recognition_models, user_models
+
+    Base.metadata.create_all(bind=engine)
+
+
+init_db()

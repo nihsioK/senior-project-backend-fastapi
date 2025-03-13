@@ -5,6 +5,9 @@ import numpy as np
 import json
 import random
 from collections import defaultdict, deque
+from app.services.gesture_statistics_service import ActionStatisticService
+
+action_statistics_service = ActionStatisticService()
 
 redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
 
@@ -32,8 +35,8 @@ def recognition_worker():
         print("Received {} frames".format(len(messages)))
         for stream, message_list in messages:
             for message_id, data in message_list:
-                device_id = data[b'device_id'].decode("utf-8")
-                frame = data[b'frame'].decode("utf-8")
+                device_id = data[b"device_id"].decode("utf-8")
+                frame = data[b"frame"].decode("utf-8")
 
                 # Decode frame and add it to the queue
                 np_arr = np.frombuffer(base64.b64decode(frame), np.uint8)
@@ -48,14 +51,18 @@ def recognition_worker():
                     frame_queues[device_id].clear()  # Clear queue after processing
 
                     # Send recognition result back via Redis Pub/Sub
-                    redis_client.publish("action_results", json.dumps({"device_id": device_id, "action": action_result}))
+                    redis_client.publish(
+                        "action_results", json.dumps({"device_id": device_id, "action": action_result})
+                    )
 
                     if action_result == "rock":
                         alert_message = {
                             "device_id": device_id,
-                            "message": f"On {device_id} detected unusual activity: {action_result}"
+                            "message": f"On {device_id} detected unusual activity: {action_result}",
                         }
                         redis_client.publish("alerts", json.dumps(alert_message))
+
+                    action_statistics_service.process_action(None, device_id, action_result)
 
 
 if __name__ == "__main__":

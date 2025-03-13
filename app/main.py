@@ -1,12 +1,21 @@
 from fastapi import FastAPI
 from app.database import engine, Base
-from app.routers import user_router, camera_router, webrtc, notification_router, recognition_router, websockets, notifications_websockets
+from app.routers import (
+    user_router,
+    camera_router,
+    webrtc,
+    notification_router,
+    recognition_router,
+    websockets,
+    notifications_websockets,
+    gesture_statistics_router,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from app.dependencies import on_startup, on_shutdown
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Senior Project")
 
@@ -33,12 +42,14 @@ app.include_router(user_router.router)
 app.include_router(camera_router.router)
 app.include_router(webrtc.router)
 
+app.include_router(gesture_statistics_router.router)
 app.include_router(websockets.router)
 app.include_router(notifications_websockets.router)
 
 app.include_router(notification_router.router)
 
 app.include_router(recognition_router.router)
+
 
 @app.get("/")
 async def index():

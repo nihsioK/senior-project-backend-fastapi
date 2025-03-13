@@ -1,0 +1,1 @@
+"python jetson.py --server https://senior-backend.xyz --camera 0 --device_id camera169"
