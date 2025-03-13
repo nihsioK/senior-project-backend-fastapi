@@ -45,12 +45,6 @@ def recognition_worker(db_session):
                 np_arr = np.frombuffer(base64.b64decode(frame), np.uint8)
                 img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-                try:
-                    action_service.process_action(None, device_id, action_result)
-
-                except Exception as e:
-                    print(f"Error processing action: {e}")
-
                 frame_queues[device_id].append(img)
 
                 # If we have 10 frames, process and send result
@@ -70,6 +64,12 @@ def recognition_worker(db_session):
                             "message": f"On {device_id} detected unusual activity: {action_result}",
                         }
                         redis_client.publish("alerts", json.dumps(alert_message))
+
+                    try:
+                        action_service.process_action(None, device_id, action_result)
+                    except Exception as e:
+                        print(f"Error processing action: {e}")
+
     db_session.close()
 
 
