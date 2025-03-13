@@ -46,7 +46,7 @@ def recognition_worker(db_session):
                 img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
                 try:
-                    action_service.process_action(db_session, device_id, action_result)
+                    action_service.process_action(None, device_id, action_result)
 
                 except Exception as e:
                     print(f"Error processing action: {e}")
