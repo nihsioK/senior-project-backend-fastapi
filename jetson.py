@@ -92,6 +92,22 @@ async def set_connection(device_id, server_url, connection):
             print(f"[Publisher] Error setting connection: {e}")
             return False
 
+async def set_stream(device_id, server_url, stream):
+    async with ClientSession() as session:
+        try:
+            response = await session.post(f"{server_url}/cameras/set_stream/", json={
+                "camera_id": device_id,
+                "stream": stream
+            })
+            if response.status in [200, 201]:
+                print(f"[Publisher] Stream '{stream}' set successfully.")
+                return True
+            else:
+                print(f"[Publisher] Failed to set stream '{stream}'. Status: {response.status}")
+        except Exception as e:
+            print(f"[Publisher] Error setting stream: {e}")
+            return False
+
 
 async def control_stream(device_id, video_track, server_url):
     async with ClientSession() as session:
@@ -139,6 +155,7 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
             print("[Publisher] ICE Connection failed. Attempting reconnection...")
             # Implement reconnection logic here
 
+
     offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
 
@@ -165,6 +182,10 @@ async def run(pc, session, cloud_server_url, camera_device, device_id):
     await pc.setRemoteDescription(RTCSessionDescription(sdp=answer["sdp"], type=answer["type"]))
     print("[Publisher] Publisher connection established for device:", device_id)
 
+    if not await set_stream(device_id, cloud_server_url, True):
+        print("[Publisher] Exiting due to connection setup failure.")
+        return
+
     asyncio.create_task(control_stream(device_id, video_track, cloud_server_url))
 
 
@@ -172,6 +193,7 @@ async def cleanup(device_id, cloud_server_url):
     print("[Publisher] Cleaning up before exit...")
     try:
         await set_connection(device_id, cloud_server_url, False)
+        await set_stream(device_id, cloud_server_url, False)
 
     except Exception as e:
         print(f"[Publisher] Cleanup failed: {e}")

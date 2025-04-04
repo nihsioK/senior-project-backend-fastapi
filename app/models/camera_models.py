@@ -3,6 +3,8 @@ from sqlalchemy.sql import func
 from app.database import Base
 from sqlalchemy.orm import relationship
 
+from app.models.association import user_camera_association
+
 
 class Camera(Base):
     __tablename__ = "cameras"
@@ -14,4 +16,11 @@ class Camera(Base):
     stream = Column(Boolean, default=False)
     connected = Column(Boolean, default=False)
 
+    users = relationship(
+        "User",
+        secondary=user_camera_association,
+        back_populates="cameras"
+    )
+
     statistics = relationship("ActionStatistic", back_populates="camera", cascade="all, delete-orphan")
+
