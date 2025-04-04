@@ -31,3 +31,6 @@ class UserService:
 
     def unlink_camera_from_user(self, user_id: int, camera_id: int) -> bool:
         return self.user_repository.unlink_camera(user_id, camera_id)
+
+    def get_all_users(self) -> list[User]:
+        return self.user_repository.get_all_users()

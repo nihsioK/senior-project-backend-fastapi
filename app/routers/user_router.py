@@ -79,3 +79,9 @@ def unlink_camera(user_id: int, camera_id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="User or camera not found or not linked")
     return {"message": "Camera unlinked successfully"}
+
+
+@router.get("/list")
+def list_users(db: Session = Depends(get_db)):
+    user_service = UserService(db)
+    return user_service.get_all_users()
