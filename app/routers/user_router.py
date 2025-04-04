@@ -47,8 +47,17 @@ def get_user_cameras(user_id: int, db: Session = Depends(get_db)):
     user_service = UserService(db)
     return user_service.get_user_cameras(user_id)
 
-@router.get("/me/cameras", response_model=list[CameraOut])
+@router.get("/me/cameras/new", response_model=list[CameraOut] )
 def get_my_cameras(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user_service = UserService(db)
+    cameras = user_service.get_user_cameras(current_user.id)
+    return user_service.get_user_cameras(current_user.id)
+
+@router.get("/me/cameras/old")
+def get_my_cameras_old(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
