@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
+
+from sqlalchemy.testing import db
+
 from app.auth.authentication import create_access_token
 from app.schemas.camera_schemas import CameraOut
 from app.schemas.user_schemas import UserCreate, UserOut, Token
@@ -85,3 +88,8 @@ def unlink_camera(user_id: int, camera_id: int, db: Session = Depends(get_db)):
 def list_users(db: Session = Depends(get_db)):
     user_service = UserService(db)
     return user_service.get_all_users()
+
+@router.get("/myaccount")
+def my_account(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_service = UserService(db)
+    return user_service.get_user_by_id(current_user.id)

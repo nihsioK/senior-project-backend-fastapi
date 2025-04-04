@@ -17,6 +17,9 @@ class UserRepository:
     def get_all_users(self):
         return self.db.query(User).all()
 
+    def get_user_by_id(self, user_id: int):
+        return self.db.query(User).filter(User.id == user_id).first()
+
     def create(self, user_create: UserCreate) -> User:
         hashed_password = pwd_context.hash(user_create.password)
         user = User(
