@@ -9,6 +9,7 @@ from app.routers import (
     websockets,
     notifications_websockets,
     gesture_statistics_router,
+    websockets_recognition,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from app.dependencies import on_startup, on_shutdown
@@ -44,11 +45,13 @@ app.include_router(webrtc.router)
 
 app.include_router(gesture_statistics_router.router)
 app.include_router(websockets.router)
-app.include_router(notifications_websockets.router)
+# app.include_router(notifications_websockets.router)
 
 app.include_router(notification_router.router)
 
 app.include_router(recognition_router.router)
+
+app.include_router(websockets_recognition.router)
 
 
 @app.get("/")

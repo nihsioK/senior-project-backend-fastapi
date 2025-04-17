@@ -10,8 +10,10 @@ def get_db():
     finally:
         db.close()
 
+
 publishers = {}
 subscriber_pcs = set()
+
 
 async def on_startup():
     """Startup event handler to initialize global settings."""
@@ -22,11 +24,6 @@ async def on_startup():
     except Exception as e:
         print("Could not obtain local IP:", e)
 
-    try:
-        from app.routers.webrtc import frame_processing_worker
-        asyncio.create_task(frame_processing_worker())
-    except Exception as e:
-        print("Error starting frame processing worker:", e)
 
 async def on_shutdown():
     """Shutdown event handler to clean up RTC connections."""
