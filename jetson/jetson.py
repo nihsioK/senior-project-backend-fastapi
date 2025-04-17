@@ -250,6 +250,7 @@ async def main():
     ws_protocol = "wss" if server_url.startswith("https") else "ws"
     ws_host = server_url.removeprefix("https://").removeprefix("http://")
     ws_url = f"{ws_protocol}://{ws_host}/ws/jetson"
+    print(f"ws url: {ws_url}")
 
     async with ClientSession(connector=TCPConnector(ssl=False)) as session:
         try:
