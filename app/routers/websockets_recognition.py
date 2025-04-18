@@ -80,7 +80,7 @@ async def frontend_ws(websocket: WebSocket, camera_id: str):
             del frontend_subscribers[camera_id]  # Clean up empty sets
 
 
-@router.websocket("/ws/alerts")
+@router.websocket("/ws/alert_system/")
 async def alerts_ws(websocket: WebSocket):
     """
     Frontend clients connect here to receive alerts from any camera
