@@ -102,7 +102,35 @@ async def recognition_loop(device_id, ws_url, interval=0.5):
                     if action == "rock":
                         alert_payload = {
                             "type": "alert",
-                            "alert_level": "warning",
+                            "alert_level": "low",
+                            "camera_id": device_id,
+                            "message": f"High confidence gesture: {action}",
+                            "details": {
+                                "action": action,
+                                "confidence": confidence,
+                                "timestamp": str(datetime.datetime.now()),
+                            },
+                        }
+                        await ws.send(json.dumps(alert_payload))
+
+                    if action == "palm":
+                        alert_payload = {
+                            "type": "alert",
+                            "alert_level": "medium",
+                            "camera_id": device_id,
+                            "message": f"High confidence gesture: {action}",
+                            "details": {
+                                "action": action,
+                                "confidence": confidence,
+                                "timestamp": str(datetime.datetime.now()),
+                            },
+                        }
+                        await ws.send(json.dumps(alert_payload))
+
+                    if action == "fist":
+                        alert_payload = {
+                            "type": "alert",
+                            "alert_level": "high",
                             "camera_id": device_id,
                             "message": f"High confidence gesture: {action}",
                             "details": {
